@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>年号フラッシュラン</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #2a2420;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh;
+    font-family: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS PMincho', 'Meiryo', serif;
+    overflow: hidden;
+  }
+  #gameContainer {
+    position: relative; width: 800px; height: 500px;
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 0 30px rgba(139,90,43,0.4), 0 0 60px rgba(80,50,20,0.3);
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  #titleScreen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    background: linear-gradient(180deg, rgba(240,230,210,0.97), rgba(210,195,170,0.97));
+    z-index: 20; animation: fadeIn 0.5s ease;
+  }
+  #titleScreen.hidden { display: none; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .title-logo {
+    font-size: 44px; font-weight: 900; color: #2a1a0a;
+    font-family: 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+    text-shadow: 2px 2px 0 rgba(139,90,43,0.3);
+    letter-spacing: 6px; margin-bottom: 6px;
+  }
+  .title-sub { color: #8a6a3a; font-size: 14px; margin-bottom: 30px; letter-spacing: 3px; }
+  .title-runner { font-size: 56px; animation: float 2s ease-in-out infinite; margin-bottom: 20px; }
+  .start-btn {
+    padding: 14px 56px; font-size: 20px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, #8b2020, #5a1010);
+    border: 2px solid #c9a96e; border-radius: 50px; cursor: pointer;
+    font-family: 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+    animation: pulse 2s ease-in-out infinite; transition: box-shadow 0.3s; letter-spacing: 4px;
+  }
+  .start-btn:hover { box-shadow: 0 0 20px rgba(139,90,43,0.5); }
+  .title-info { color: #6a5a40; font-size: 12px; margin-top: 18px; line-height: 1.6; text-align: center; }
+  .title-eras { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  .title-era-badge {
+    background: rgba(139,90,43,0.1); border: 1px solid rgba(139,90,43,0.3);
+    border-radius: 20px; padding: 3px 10px; font-size: 10px; color: #6a4a2a;
+  }
+  .zukan-btn {
+    margin-top: 12px; padding: 8px 28px; font-size: 14px; font-weight: 700; color: #5a3a1a;
+    background: rgba(139,90,43,0.15); border: 1px solid rgba(139,90,43,0.4);
+    border-radius: 30px; cursor: pointer; font-family: 'Yu Mincho', serif;
+    letter-spacing: 2px; transition: background 0.3s;
+  }
+  .zukan-btn:hover { background: rgba(139,90,43,0.3); }
+
+  #resultScreen {
+    position: absolute; inset: 0; display: none;
+    flex-direction: column; justify-content: center; align-items: center;
+    background: linear-gradient(180deg, rgba(240,230,210,0.97), rgba(210,195,170,0.97));
+    z-index: 20;
+  }
+  #resultScreen.show { display: flex; }
+  .result-title { font-size: 34px; font-weight: 900; color: #3a1a0a; margin-bottom: 20px; font-family: 'Yu Mincho', serif; text-shadow: 1px 1px 0 rgba(139,90,43,0.3); }
+  .result-box {
+    background: rgba(139,90,43,0.08); border-radius: 16px; padding: 20px 40px;
+    margin-bottom: 16px; text-align: center; border: 1px solid rgba(139,90,43,0.2);
+  }
+  .result-score {
+    font-size: 48px; font-weight: 900; color: #8b2020;
+  }
+  .result-score-label { color: #8a7a5a; font-size: 13px; margin-bottom: 6px; }
+  .result-stats { display: flex; gap: 20px; margin-top: 14px; }
+  .result-stat { text-align: center; }
+  .result-stat-value { font-size: 22px; font-weight: 700; color: #3a2a1a; }
+  .result-stat-label { font-size: 10px; color: #8a7a5a; margin-top: 3px; }
+  .result-era-label { font-size: 14px; color: #6a4a2a; margin-bottom: 10px; }
+  .result-rank { font-size: 18px; color: #2a6a2a; margin-bottom: 14px; font-weight: 700; }
+  .restart-btn {
+    padding: 12px 44px; font-size: 16px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, #8b2020, #5a1010);
+    border: 2px solid #c9a96e; border-radius: 50px; cursor: pointer;
+    font-family: 'Yu Mincho', serif;
+    transition: box-shadow 0.3s, transform 0.2s; letter-spacing: 2px;
+  }
+  .restart-btn:hover { box-shadow: 0 0 20px rgba(139,90,43,0.4); transform: scale(1.05); }
+  .result-zukan-btn {
+    margin-top: 10px; padding: 10px 32px; font-size: 15px; font-weight: 700; color: #5a3a1a;
+    background: rgba(139,90,43,0.15); border: 1px solid rgba(139,90,43,0.4);
+    border-radius: 30px; cursor: pointer; font-family: 'Yu Mincho', serif;
+    letter-spacing: 2px; transition: background 0.3s;
+  }
+  .result-zukan-btn:hover { background: rgba(139,90,43,0.3); }
+
+  /* 巻物オーバーレイ */
+  #scrollOverlay {
+    position: absolute; inset: 0; display: none;
+    flex-direction: column; align-items: center;
+    background: linear-gradient(180deg, rgba(240,230,210,0.98), rgba(220,205,180,0.98));
+    z-index: 30; overflow-y: auto;
+  }
+  #scrollOverlay.show { display: flex; }
+  .scroll-header {
+    width: 100%; padding: 14px 0; text-align: center;
+    background: rgba(139,90,43,0.15); border-bottom: 2px solid rgba(139,90,43,0.3);
+    font-size: 24px; font-weight: 900; color: #3a1a0a;
+    font-family: 'Yu Mincho', serif; letter-spacing: 4px;
+  }
+  .scroll-list { width: 100%; padding: 10px 20px; }
+  .scroll-card {
+    background: linear-gradient(135deg, rgba(245,238,220,0.95), rgba(235,225,200,0.95));
+    border: 1px solid rgba(139,90,43,0.3); border-left: 4px solid #8b5a2a;
+    border-radius: 8px; padding: 14px 18px; margin-bottom: 10px;
+    box-shadow: 1px 2px 6px rgba(80,50,20,0.1);
+  }
+  .scroll-card-year { font-size: 20px; font-weight: 900; color: #8b2020; font-family: 'Yu Mincho', serif; }
+  .scroll-card-event { font-size: 16px; font-weight: 700; color: #3a2a1a; margin-left: 8px; }
+  .scroll-card-desc { font-size: 13px; color: #5a4a3a; margin-top: 6px; line-height: 1.6; }
+  .scroll-card-gorou { font-size: 13px; color: #8b5a2a; margin-top: 4px; font-weight: 700; }
+  .scroll-close-btn {
+    margin: 12px 0 16px; padding: 10px 40px; font-size: 16px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, #8b2020, #5a1010);
+    border: 2px solid #c9a96e; border-radius: 50px; cursor: pointer;
+    font-family: 'Yu Mincho', serif; letter-spacing: 2px;
+  }
+  .scroll-close-btn:hover { box-shadow: 0 0 15px rgba(139,90,43,0.4); }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <div id="titleScreen">
+    <div class="title-runner">⛩️🏯</div>
+    <div class="title-logo">年号フラッシュラン</div>
+    <div class="title-sub">〜 走って覚える日本史年号 〜</div>
+    <button class="start-btn" id="startBtn">壱、参る</button>
+    <div class="title-info">制限時間60秒 ｜ 敵から逃げろ！<br>各時代2問正解で進化 ｜ 全6時代クリアを目指せ！<br>🐴 正解で乗り物アイテムが出現！</div>
+    <div class="title-eras">
+      <span class="title-era-badge">飛鳥・奈良</span><span class="title-era-badge">平安</span>
+      <span class="title-era-badge">鎌倉・室町</span><span class="title-era-badge">江戸</span>
+      <span class="title-era-badge">幕末</span><span class="title-era-badge">明治〜昭和</span>
+    </div>
+    <button class="zukan-btn" id="zukanBtn">📜 年号図鑑</button>
+  </div>
+  <div id="resultScreen">
+    <div class="result-title" id="resultTitle">ゲーム終了！</div>
+    <div class="result-box">
+      <div class="result-score-label">SCORE</div>
+      <div class="result-score" id="finalScore">0</div>
+      <div class="result-stats">
+        <div class="result-stat"><div class="result-stat-value" id="finalCorrect">0</div><div class="result-stat-label">正解数</div></div>
+        <div class="result-stat"><div class="result-stat-value" id="finalAccuracy">0%</div><div class="result-stat-label">正答率</div></div>
+        <div class="result-stat"><div class="result-stat-value" id="finalTime">0s</div><div class="result-stat-label">プレイ時間</div></div>
+        <div class="result-stat"><div class="result-stat-value" id="finalDist">50</div><div class="result-stat-label">最終距離</div></div>
+      </div>
+    </div>
+    <div class="result-era-label" id="finalEra"></div>
+    <div class="result-rank" id="resultRank"></div>
+    <button class="restart-btn" id="restartBtn">もう一回プレイ</button>
+    <button class="result-zukan-btn" id="resultZukanBtn">📜 年号図鑑を見る</button>
+  </div>
+  <div id="scrollOverlay">
+    <div class="scroll-header">📜 年号巻物図鑑</div>
+    <div class="scroll-list" id="scrollList"></div>
+    <button class="scroll-close-btn" id="scrollCloseBtn">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 年号フラッシュラン - 乗り物アイテムシステム版
+// ============================================================
+
+const ERAS = [
+  { name:'飛鳥・奈良', label:'古代人', enemy:'マンモス' },
+  { name:'平安',       label:'平安貴族', enemy:'赤鬼' },
+  { name:'鎌倉・室町', label:'武士', enemy:'敵武士' },
+  { name:'江戸',       label:'町人', enemy:'捕り手' },
+  { name:'幕末',       label:'志士', enemy:'外国兵' },
+  { name:'明治〜昭和', label:'近代人', enemy:'戦車' },
+];
+
+// --- 時代別乗り物 ---
+const ERA_VEHICLES = [
+  { name:'馬', color:'#8a5a2a' },
+  { name:'牛車', color:'#6a4a2a' },
+  { name:'馬武者', color:'#aa3030' },
+  { name:'駕籠', color:'#5a4a3a' },
+  { name:'馬+刀', color:'#4a3a2a' },
+  { name:'人力車', color:'#6a3a1a' },
+];
+
+// --- 巻物図鑑データ（全20問）---
+const SCROLL_DATA = [
+  { year:645,  event:"大化の改新", gorou:"むしごろし(645)大化の改新", desc:"中大兄皇子と中臣鎌足が蘇我氏を倒し、天皇中心の政治改革を始めた。日本初の元号が制定された。" },
+  { year:672,  event:"壬申の乱", gorou:"ろくな(672)争い壬申の乱", desc:"天智天皇の死後、大海人皇子と大友皇子が皇位をめぐって争った古代最大の内乱。大海人皇子が勝利し天武天皇となった。" },
+  { year:710,  event:"奈良遷都", gorou:"なんと(710)大きな奈良の都", desc:"元明天皇が藤原京から平城京へ都を移した。唐の長安を模した本格的な都城で、奈良時代が始まった。" },
+  { year:743,  event:"墾田永年私財法", gorou:"なじさん(743)墾田永年私財法", desc:"新たに開墾した土地の永久私有を認めた法律。貴族や寺社の荘園拡大につながり、律令制度の崩壊を招いた。" },
+  { year:794,  event:"平安遷都", gorou:"泣くよ(794)うぐいす平安京", desc:"桓武天皇が長岡京から平安京へ都を移した。以後約1000年間、京都が日本の首都となった。" },
+  { year:858,  event:"藤原良房摂政", gorou:"はごはち(858)良房摂政", desc:"藤原良房が人臣初の摂政となった。藤原氏が天皇に代わって政治を行う摂関政治の始まりとなった。" },
+  { year:1016, event:"藤原道長摂関政治", gorou:"とおいや(1016)道長の世", desc:"藤原道長が摂政となり権力の頂点に立った。『この世をば我が世とぞ思ふ』の和歌で有名。" },
+  { year:1086, event:"院政開始", gorou:"とおやく(1086)院政始まる", desc:"白河上皇が天皇の位を譲った後も上皇として政治を行う院政を始めた。摂関政治に代わる新たな政治形態。" },
+  { year:1192, event:"鎌倉幕府", gorou:"いい国(1192)作ろう鎌倉幕府", desc:"源頼朝が征夷大将軍に任じられ鎌倉幕府を開いた。武士が政治の中心となる時代の始まり。" },
+  { year:1221, event:"承久の乱", gorou:"人に不意(1221)打ち承久の乱", desc:"後鳥羽上皇が幕府打倒を企てて挙兵したが失敗した。以後、幕府の支配が全国に及ぶようになった。" },
+  { year:1274, event:"文永の役", gorou:"人にな(1274)し文永の役", desc:"元のフビライ・ハンが日本に大軍を送り込んだ第一次蒙古襲来。暴風雨により元軍は撤退した。" },
+  { year:1333, event:"鎌倉幕府滅亡", gorou:"一味散々(1333)鎌倉滅亡", desc:"後醍醐天皇の討幕運動に足利尊氏・新田義貞らが呼応し、鎌倉幕府が滅亡した。" },
+  { year:1338, event:"室町幕府", gorou:"いざみや(1338)こ室町幕府", desc:"足利尊氏が征夷大将軍となり室町幕府を開いた。京都の室町に幕府を置いたことからこの名がついた。" },
+  { year:1467, event:"応仁の乱", gorou:"人の世(1467)むなし応仁の乱", desc:"将軍家の後継争いに細川・山名両氏の対立が絡み、京都を中心に11年間続いた大乱。戦国時代の始まり。" },
+  { year:1600, event:"関ヶ原の戦い", gorou:"ひとむれ(1600)武者が関ヶ原", desc:"徳川家康率いる東軍と石田三成率いる西軍が激突した天下分け目の戦い。家康が勝利し江戸幕府樹立へ。" },
+  { year:1603, event:"江戸幕府", gorou:"ひろがる(1603)江戸の世", desc:"徳川家康が征夷大将軍となり江戸幕府を開いた。以後265年間続く江戸時代の始まり。" },
+  { year:1716, event:"享保の改革", gorou:"いーないろ(1716)享保の改革", desc:"8代将軍徳川吉宗が行った幕政改革。質素倹約・新田開発・公事方御定書の制定などを実施した。" },
+  { year:1853, event:"黒船来航", gorou:"嫌でござる(1853)黒船来航", desc:"アメリカのペリー提督が4隻の黒船を率いて浦賀に来航し開国を要求。日本の鎖国体制が揺らぎ始めた。" },
+  { year:1868, event:"明治維新", gorou:"一派無用(1868)明治維新", desc:"王政復古の大号令により天皇親政が宣言され明治新政府が発足した。近代日本の出発点となった大改革。" },
+  { year:1945, event:"終戦", gorou:"行くよ終(19)戦(45)昭和20年", desc:"8月15日に昭和天皇がラジオで終戦を告げる玉音放送を行い、太平洋戦争が終結した。" },
+];
+
+// --- 時代別問題データ（難易度調整済み）---
+const ERA_QUESTIONS = [
+  [ // Era 0: 飛鳥・奈良
+    { year:645,  event:"大化の改新",   choices:[538, 645, 710, 794], gorou:"むしごろし(645)大化の改新", desc:"中大兄皇子と中臣鎌足が蘇我氏を倒し、天皇中心の政治改革を始めた。日本初の元号が制定された。" },
+    { year:710,  event:"平城京遷都",   choices:[593, 645, 710, 794], gorou:"なんと(710)大きな奈良の都", desc:"元明天皇が藤原京から平城京へ都を移した。唐の長安を模した本格的な都城で、奈良時代が始まった。" },
+    { year:794,  event:"平安京遷都",   choices:[645, 710, 794, 894], gorou:"泣くよ(794)うぐいす平安京", desc:"桓武天皇が長岡京から平安京へ都を移した。以後約1000年間、京都が日本の首都となった。" },
+    { year:672,  event:"壬申の乱",     choices:[538, 607, 672, 710], gorou:"ろくな(672)争い壬申の乱", desc:"天智天皇の死後、大海人皇子と大友皇子が皇位をめぐって争った古代最大の内乱。大海人皇子が勝利し天武天皇となった。" },
+  ],
+  [ // Era 1: 平安
+    { year:894,  event:"遣唐使廃止",       choices:[858, 878, 894, 935], gorou:"白紙(894)に戻す遣唐使" },
+    { year:1016, event:"藤原道長が摂政に", choices:[986, 1016, 1051, 1086], gorou:"とおいや(1016)道長の世", desc:"藤原道長が摂政となり権力の頂点に立った。『この世をば我が世とぞ思ふ』の和歌で有名。" },
+    { year:1086, event:"院政の開始",       choices:[1053, 1068, 1086, 1108], gorou:"とおやく(1086)院政始まる", desc:"白河上皇が天皇の位を譲った後も上皇として政治を行う院政を始めた。摂関政治に代わる新たな政治形態。" },
+    { year:935,  event:"承平天慶の乱",     choices:[894, 916, 935, 967], gorou:"組(9)み(3)合(5)う承平天慶の乱" },
+  ],
+  [ // Era 2: 鎌倉・室町
+    { year:1185, event:"壇ノ浦の戦い",   choices:[1175, 1180, 1185, 1192], gorou:"いいはこ(1185)作ろう壇ノ浦" },
+    { year:1192, event:"鎌倉幕府成立",   choices:[1185, 1189, 1192, 1199], gorou:"いい国(1192)作ろう鎌倉幕府", desc:"源頼朝が征夷大将軍に任じられ鎌倉幕府を開いた。武士が政治の中心となる時代の始まり。" },
+    { year:1333, event:"鎌倉幕府滅亡",   choices:[1324, 1330, 1333, 1338], gorou:"一味散々(1333)鎌倉滅亡", desc:"後醍醐天皇の討幕運動に足利尊氏・新田義貞らが呼応し、鎌倉幕府が滅亡した。" },
+    { year:1338, event:"室町幕府成立",   choices:[1333, 1335, 1338, 1342], gorou:"いざみや(1338)こ室町幕府", desc:"足利尊氏が征夷大将軍となり室町幕府を開いた。京都の室町に幕府を置いたことからこの名がついた。" },
+    { year:1467, event:"応仁の乱",       choices:[1457, 1462, 1467, 1473], gorou:"人の世(1467)むなし応仁の乱", desc:"将軍家の後継争いに細川・山名両氏の対立が絡み、京都を中心に11年間続いた大乱。戦国時代の始まり。" },
+  ],
+  [ // Era 3: 江戸
+    { year:1543, event:"鉄砲伝来",       choices:[1536, 1543, 1549, 1553], gorou:"以後予算(1543)で鉄砲伝来" },
+    { year:1600, event:"関ヶ原の戦い",   choices:[1592, 1597, 1600, 1607], gorou:"ひとむれ(1600)武者が関ヶ原", desc:"徳川家康率いる東軍と石田三成率いる西軍が激突した天下分け目の戦い。家康が勝利し江戸幕府樹立へ。" },
+    { year:1603, event:"江戸幕府成立",   choices:[1598, 1600, 1603, 1610], gorou:"ひろがる(1603)江戸の世", desc:"徳川家康が征夷大将軍となり江戸幕府を開いた。以後265年間続く江戸時代の始まり。" },
+    { year:1637, event:"島原の乱",       choices:[1629, 1634, 1637, 1643], gorou:"ひろみな(1637)で島原の乱" },
+  ],
+  [ // Era 4: 幕末
+    { year:1853, event:"ペリー来航",       choices:[1851, 1852, 1853, 1855], gorou:"嫌でござる(1853)黒船来航", desc:"アメリカのペリー提督が4隻の黒船を率いて浦賀に来航し開国を要求。日本の鎖国体制が揺らぎ始めた。" },
+    { year:1858, event:"日米修好通商条約", choices:[1856, 1857, 1858, 1860], gorou:"一番こわい(1858)通商条約" },
+    { year:1860, event:"桜田門外の変",     choices:[1858, 1859, 1860, 1862], gorou:"いやむれ(1860)なす桜田門" },
+    { year:1867, event:"大政奉還",         choices:[1865, 1866, 1867, 1868], gorou:"いやむなしい(1867)大政奉還" },
+  ],
+  [ // Era 5: 明治〜昭和
+    { year:1868, event:"明治維新",           choices:[1866, 1867, 1868, 1869], gorou:"一派無用(1868)明治維新", desc:"王政復古の大号令により天皇親政が宣言され明治新政府が発足した。近代日本の出発点となった大改革。" },
+    { year:1894, event:"日清戦争開戦",       choices:[1893, 1894, 1895, 1896], gorou:"いっぱくし(1894)て日清戦争" },
+    { year:1904, event:"日露戦争開戦",       choices:[1903, 1904, 1905, 1906], gorou:"行くわよ(1904)ロシアへ" },
+    { year:1945, event:"終戦（太平洋戦争）", choices:[1943, 1944, 1945, 1946], gorou:"行くよ終(19)戦(45)昭和20年", desc:"8月15日に昭和天皇がラジオで終戦を告げる玉音放送を行い、太平洋戦争が終結した。" },
+  ],
+];
+
+// --- 設定 ---
+const GAME_DURATION = 60;
+const BASE_SPEED = 2.5, BOOST_SPEED = 6, SLOW_SPEED = 0.8;
+const VEHICLE_SPEED_MULT = 1.8;
+const VEHICLE_DURATION = 10; // 秒
+const VEHICLE_SPAWN_CHANCE = 0.3;
+const Q_INTERVAL = 1500, Q_INTERVAL_ERA = 2500, CORRECT_PER_ERA = 2;
+
+// --- レイアウト ---
+const BTN_X=160, BTN_Y=58, BTN_W=228, BTN_H=44, BTN_GX=14, BTN_GY=8;
+const SCENE_TOP=155, GROUND_Y=390, ROAD_TOP=375;
+const PLAYER_X=620, ENEMY_GAP=460;
+const GAUGE_Y=455, GAUGE_H=30;
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- 状態 ---
+let gameState='title', endReason='';
+let score=0, combo=0, maxCombo=0, correctCount=0, totalAnswered=0;
+let timeLeft=GAME_DURATION, startTime=0, playTime=0;
+let speed=BASE_SPEED, targetSpeed=BASE_SPEED, runDist=0;
+let currentQuestion=null, questionTimer=0, nextQInterval=Q_INTERVAL;
+let eraUsedQs=[], particles=[], floatingTexts=[];
+let bgOffset=0, groundOffset=0;
+let shakeAmount=0, flashColor=null, flashAlpha=0;
+let currentEra=0, eraCorrectCount=0, eraTransAlpha=0, eraLabelTimer=0;
+let chaseDist=50, displayDist=50, playerDashOff=0, enemyDashOff=0, wasAtMax=false;
+let bouncePhase=0, enemyPhase=0, mouseX=0, mouseY=0;
+
+// --- 乗り物アイテム状態 ---
+let vehicleActive=false, vehicleTimer=0, vehicleEra=0;
+let itemFloating=false, itemX=0, itemY=0, itemGlow=0;
+let vehicleEndEffect=0; // 速度ダウン演出タイマー
+let gorouDisplay={active:false, year:0, event:'', gorou:'', desc:'', timer:0, showScrollBtn:false}; // 語呂合わせ表示
+let scrollViewYear=null; // 巻物個別表示中の年号
+let sessionAnswered=[]; // 今回のセッションで出題された年号
+
+// --- 桜の花びらシステム ---
+let sakuraPetals=[];
+function initSakura(){for(let i=0;i<25;i++)sakuraPetals.push({x:Math.random()*800,y:Math.random()*500,vx:-0.3-Math.random()*0.5,vy:0.5+Math.random()*0.8,rot:Math.random()*Math.PI*2,rotV:0.01+Math.random()*0.03,size:3+Math.random()*4,alpha:0.3+Math.random()*0.4,sway:Math.random()*Math.PI*2});}
+function updateSakura(dt){sakuraPetals.forEach(p=>{p.x+=p.vx+Math.sin(p.sway)*0.3;p.y+=p.vy;p.rot+=p.rotV;p.sway+=dt*1.5;if(p.y>510){p.y=-10;p.x=Math.random()*800;}if(p.x<-10)p.x=810;});}
+function drawSakura(){ctx.save();sakuraPetals.forEach(p=>{ctx.globalAlpha=p.alpha;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle='#f8b4c8';ctx.beginPath();ctx.moveTo(0,-p.size);ctx.quadraticCurveTo(p.size*0.8,0,0,p.size*0.6);ctx.quadraticCurveTo(-p.size*0.8,0,0,-p.size);ctx.fill();ctx.fillStyle='rgba(255,200,220,0.5)';ctx.beginPath();ctx.arc(0,0,p.size*0.3,0,Math.PI*2);ctx.fill();ctx.restore();});ctx.globalAlpha=1;ctx.restore();}
+initSakura();
+
+function btnRect(i) {
+  return { x:BTN_X+(i%2)*(BTN_W+BTN_GX), y:BTN_Y+Math.floor(i/2)*(BTN_H+BTN_GY), w:BTN_W, h:BTN_H };
+}
+
+// ============================================================
+// 時代別背景
+// ============================================================
+function drawBg_Asuka() {
+  const g=ctx.createLinearGradient(0,SCENE_TOP,0,GROUND_Y);
+  g.addColorStop(0,'#2a1a3a');g.addColorStop(0.3,'#6b3a5c');g.addColorStop(0.6,'#c45c3e');g.addColorStop(1,'#e8a44a');
+  ctx.fillStyle=g; ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP);
+  ctx.fillStyle='rgba(255,140,50,0.35)';ctx.beginPath();ctx.arc(700,SCENE_TOP+60,40,0,Math.PI*2);ctx.fill();
+  for(let i=0;i<3;i++){const ox=((i*350+100-bgOffset*0.3)%1200+1200)%1200-200;
+    ctx.fillStyle='rgba(80,50,30,0.45)';ctx.beginPath();ctx.moveTo(ox-50,GROUND_Y);ctx.quadraticCurveTo(ox-30,GROUND_Y-50,ox,GROUND_Y-65);ctx.quadraticCurveTo(ox+30,GROUND_Y-50,ox+50,GROUND_Y);ctx.fill();}
+  const gg=ctx.createLinearGradient(0,GROUND_Y,0,500);gg.addColorStop(0,'#7a6633');gg.addColorStop(1,'#4a3a1a');
+  ctx.fillStyle=gg;ctx.fillRect(0,GROUND_Y,800,110);
+  ctx.fillStyle='#a09060';ctx.fillRect(0,ROAD_TOP,800,24);
+  for(let i=0;i<25;i++){const gx=((i*37-groundOffset*1.2)%850+850)%850-25;ctx.fillStyle='#8a7a33';ctx.beginPath();ctx.moveTo(gx,ROAD_TOP);ctx.lineTo(gx+2,ROAD_TOP-8);ctx.lineTo(gx+4,ROAD_TOP);ctx.fill();}
+}
+function drawBg_Heian() {
+  const g=ctx.createLinearGradient(0,SCENE_TOP,0,GROUND_Y);
+  g.addColorStop(0,'#3a2a4a');g.addColorStop(0.4,'#6a4a6a');g.addColorStop(0.7,'#c4889a');g.addColorStop(1,'#e8c0b0');
+  ctx.fillStyle=g;ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP);
+  for(let i=0;i<3;i++){ctx.fillStyle=`rgba(220,180,200,${0.05+i*0.02})`;ctx.fillRect(0,SCENE_TOP+80+i*25,800,30);}
+  for(let i=0;i<3;i++){const ox=((i*400+50-bgOffset*0.4)%1400+1400)%1400-300;
+    ctx.fillStyle='#d4c4a0';ctx.fillRect(ox,GROUND_Y-50,180,50);ctx.fillStyle='#8a6a3a';ctx.beginPath();ctx.moveTo(ox-8,GROUND_Y-50);ctx.lineTo(ox+90,GROUND_Y-65);ctx.lineTo(ox+188,GROUND_Y-50);ctx.fill();}
+  for(let i=0;i<3;i++){const tx=((i*280+150-bgOffset*0.5)%1000+1000)%1000-100;
+    ctx.fillStyle='#5a3a2a';ctx.fillRect(tx-2,GROUND_Y-50,4,50);ctx.fillStyle='rgba(255,180,200,0.65)';ctx.beginPath();ctx.arc(tx,GROUND_Y-62,22,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,200,210,0.45)';ctx.beginPath();ctx.arc(tx-12,GROUND_Y-52,14,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(tx+12,GROUND_Y-52,14,0,Math.PI*2);ctx.fill();
+    if(Math.random()<0.02)spawnP(tx+(Math.random()-0.5)*30,GROUND_Y-65,'rgba(255,180,200,0.5)',1);}
+  ctx.fillStyle='#8a7a5a';ctx.fillRect(0,GROUND_Y,800,110);ctx.fillStyle='#d4ccb8';ctx.fillRect(0,ROAD_TOP,800,24);
+}
+function drawBg_Kamakura() {
+  const g=ctx.createLinearGradient(0,SCENE_TOP,0,GROUND_Y);
+  g.addColorStop(0,'#3a4a5a');g.addColorStop(0.5,'#5a6a7a');g.addColorStop(1,'#7a8a7a');
+  ctx.fillStyle=g;ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP);
+  for(let i=0;i<4;i++){const cx=((i*220-bgOffset*0.12)%1000+1000)%1000-100;ctx.fillStyle='rgba(150,160,170,0.25)';ctx.beginPath();ctx.ellipse(cx,SCENE_TOP+30+i*20,60,14,0,0,Math.PI*2);ctx.fill();}
+  for(let i=0;i<4;i++){const ox=((i*260+80-bgOffset*0.25)%1400+1400)%1400-200;const h=60+(i%3)*30;
+    ctx.fillStyle=`rgba(40,${55+i*8},40,0.5)`;ctx.beginPath();ctx.moveTo(ox-70,GROUND_Y);ctx.lineTo(ox,GROUND_Y-h);ctx.lineTo(ox+70,GROUND_Y);ctx.fill();}
+  for(let i=0;i<5;i++){const tx=((i*170+50-bgOffset*0.45)%1100+1100)%1100-80;
+    ctx.fillStyle='#3a2a1a';ctx.fillRect(tx-2,GROUND_Y-45,4,45);
+    for(let j=0;j<3;j++){ctx.fillStyle=`rgb(${30+j*12},${55+j*12},${30+j*8})`;ctx.beginPath();ctx.moveTo(tx-14+j*2,GROUND_Y-20-j*15);ctx.lineTo(tx,GROUND_Y-35-j*15);ctx.lineTo(tx+14-j*2,GROUND_Y-20-j*15);ctx.fill();}}
+  const gg=ctx.createLinearGradient(0,GROUND_Y,0,500);gg.addColorStop(0,'#4a5a3a');gg.addColorStop(1,'#2a3a1a');
+  ctx.fillStyle=gg;ctx.fillRect(0,GROUND_Y,800,110);ctx.fillStyle='#7a7a6a';ctx.fillRect(0,ROAD_TOP,800,24);
+  for(let i=0;i<20;i++){const sx=((i*42-groundOffset*2)%850+850)%850-10;ctx.strokeStyle='rgba(50,50,40,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(sx,ROAD_TOP);ctx.lineTo(sx,ROAD_TOP+24);ctx.stroke();}
+}
+function drawBg_Edo() {
+  const g=ctx.createLinearGradient(0,SCENE_TOP,0,GROUND_Y);
+  g.addColorStop(0,'#1a3a6a');g.addColorStop(0.5,'#4a7aaa');g.addColorStop(1,'#8ab8d8');
+  ctx.fillStyle=g;ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP);
+  for(let i=0;i<3;i++){const cx=((i*250-bgOffset*0.08)%900+900)%900-80;ctx.fillStyle='rgba(255,255,255,0.35)';ctx.beginPath();ctx.ellipse(cx,SCENE_TOP+25+i*20,50,14,0,0,Math.PI*2);ctx.fill();}
+  const fujiX=((650-bgOffset*0.04)%1200+1200)%1200-200;
+  ctx.fillStyle='rgba(80,100,140,0.35)';ctx.beginPath();ctx.moveTo(fujiX-100,GROUND_Y);ctx.lineTo(fujiX-15,SCENE_TOP+40);ctx.lineTo(fujiX+15,SCENE_TOP+40);ctx.lineTo(fujiX+100,GROUND_Y);ctx.fill();
+  ctx.fillStyle='rgba(240,245,255,0.4)';ctx.beginPath();ctx.moveTo(fujiX-28,SCENE_TOP+70);ctx.lineTo(fujiX-15,SCENE_TOP+40);ctx.lineTo(fujiX+15,SCENE_TOP+40);ctx.lineTo(fujiX+28,SCENE_TOP+70);ctx.quadraticCurveTo(fujiX,SCENE_TOP+82,fujiX-28,SCENE_TOP+70);ctx.fill();
+  for(let i=0;i<4;i++){const bx=((i*210+30-bgOffset*0.4)%1100+1100)%1100-180;const bh=40+(i%3)*15;
+    ctx.fillStyle=i%2===0?'#8a7a5a':'#7a6a4a';ctx.fillRect(bx,GROUND_Y-bh,70,bh);ctx.fillStyle='#3a3a3a';ctx.beginPath();ctx.moveTo(bx-6,GROUND_Y-bh);ctx.lineTo(bx+35,GROUND_Y-bh-14);ctx.lineTo(bx+76,GROUND_Y-bh);ctx.fill();
+    if(i%2===0){ctx.fillStyle='#b03030';ctx.fillRect(bx+20,GROUND_Y-bh+15,26,14);}}
+  ctx.fillStyle='#6a6050';ctx.fillRect(0,GROUND_Y,800,110);ctx.fillStyle='#a09880';ctx.fillRect(0,ROAD_TOP,800,24);
+  for(let i=0;i<22;i++){const sx=((i*38-groundOffset*2)%900+900)%900-20;ctx.strokeStyle='rgba(80,70,50,0.35)';ctx.lineWidth=1;ctx.strokeRect(sx,ROAD_TOP+2,32,10);ctx.strokeRect(sx+16,ROAD_TOP+12,32,10);}
+}
+function drawBg_Bakumatsu() {
+  const g=ctx.createLinearGradient(0,SCENE_TOP,0,GROUND_Y);
+  g.addColorStop(0,'#1a2a4a');g.addColorStop(0.3,'#4a3a5a');g.addColorStop(0.6,'#8a4a4a');g.addColorStop(1,'#c47a3a');
+  ctx.fillStyle=g;ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP);
+  ctx.fillStyle='rgba(30,50,80,0.4)';ctx.fillRect(0,GROUND_Y-60,800,60);
+  for(let i=0;i<12;i++){const wx=((i*65-bgOffset*0.25)%900+900)%900-40;ctx.strokeStyle='rgba(100,140,180,0.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(wx,GROUND_Y-30+Math.sin(Date.now()*0.002+i)*2);ctx.quadraticCurveTo(wx+15,GROUND_Y-34+Math.sin(Date.now()*0.002+i)*2,wx+30,GROUND_Y-30+Math.sin(Date.now()*0.002+i)*2);ctx.stroke();}
+  const sx=((520-bgOffset*0.12)%1200+1200)%1200-200;ctx.fillStyle='rgba(20,20,30,0.5)';ctx.beginPath();ctx.moveTo(sx-35,GROUND_Y-45);ctx.lineTo(sx-42,GROUND_Y-30);ctx.lineTo(sx+42,GROUND_Y-30);ctx.lineTo(sx+35,GROUND_Y-45);ctx.fill();ctx.fillRect(sx-3,GROUND_Y-80,3,38);ctx.fillRect(sx+13,GROUND_Y-70,2,28);
+  ctx.fillStyle='#5a5040';ctx.fillRect(0,GROUND_Y,800,110);ctx.fillStyle='#8a7860';ctx.fillRect(0,ROAD_TOP,800,24);
+  for(let i=0;i<14;i++){const px=((i*58-groundOffset*2)%850+850)%850-10;ctx.strokeStyle='rgba(60,50,30,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,ROAD_TOP+2);ctx.lineTo(px,ROAD_TOP+22);ctx.stroke();}
+}
+function drawBg_Meiji() {
+  const g=ctx.createLinearGradient(0,SCENE_TOP,0,GROUND_Y);
+  g.addColorStop(0,'#2a3a5a');g.addColorStop(0.5,'#5a7a9a');g.addColorStop(1,'#9aaaba');
+  ctx.fillStyle=g;ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP);
+  for(let i=0;i<3;i++){const cx=((i*300-bgOffset*0.06)%900+900)%900-40;ctx.fillStyle='rgba(200,210,220,0.25)';ctx.beginPath();ctx.ellipse(cx,SCENE_TOP+30+i*30,55,12,0,0,Math.PI*2);ctx.fill();}
+  for(let i=0;i<3;i++){const px=((i*260+100-bgOffset*0.45)%1100+1100)%1100-80;ctx.fillStyle='#5a5040';ctx.fillRect(px-2,SCENE_TOP+40,4,GROUND_Y-SCENE_TOP-40);ctx.fillRect(px-16,SCENE_TOP+50,32,2);
+    ctx.strokeStyle='rgba(60,60,60,0.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px+16,SCENE_TOP+51);ctx.quadraticCurveTo(px+110,SCENE_TOP+58,px+260,SCENE_TOP+51);ctx.stroke();}
+  for(let i=0;i<3;i++){const bx=((i*340+50-bgOffset*0.35)%1100+1100)%1100-180;const bh=55+(i%2)*15;
+    ctx.fillStyle='#8a4a3a';ctx.fillRect(bx,GROUND_Y-bh,85,bh);ctx.strokeStyle='rgba(60,30,20,0.25)';ctx.lineWidth=0.5;
+    for(let r=0;r<bh;r+=7){ctx.beginPath();ctx.moveTo(bx,GROUND_Y-bh+r);ctx.lineTo(bx+85,GROUND_Y-bh+r);ctx.stroke();}
+    for(let w=0;w<3;w++){ctx.fillStyle='rgba(180,200,220,0.4)';ctx.fillRect(bx+8+w*26,GROUND_Y-bh+12,16,20);}
+    ctx.fillStyle='#6a3a2a';ctx.fillRect(bx-2,GROUND_Y-bh-4,89,4);}
+  ctx.fillStyle='#5a5a5a';ctx.fillRect(0,GROUND_Y,800,110);ctx.fillStyle='#7a7a7a';ctx.fillRect(0,ROAD_TOP,800,24);
+  ctx.setLineDash([28,18]);ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=2;ctx.beginPath();ctx.lineDashOffset=(-groundOffset*2)%46;ctx.moveTo(0,ROAD_TOP+12);ctx.lineTo(800,ROAD_TOP+12);ctx.stroke();ctx.setLineDash([]);
+}
+const BG_DRAW=[drawBg_Asuka,drawBg_Heian,drawBg_Kamakura,drawBg_Edo,drawBg_Bakumatsu,drawBg_Meiji];
+
+// ============================================================
+// 自キャラ描画
+// ============================================================
+function drawC_Kodai(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#8a6a3a';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,8);ctx.lineTo(-5+ls*0.4,20);ctx.stroke();ctx.beginPath();ctx.moveTo(5,8);ctx.lineTo(5-ls*0.4,20);ctx.stroke();
+  ctx.fillStyle='#c4a060';ctx.beginPath();ctx.ellipse(0,-5,13,17,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#8a6a30';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-7,-8);ctx.lineTo(7,-8);ctx.stroke();ctx.beginPath();ctx.moveTo(-5,0);ctx.lineTo(5,0);ctx.stroke();
+  ctx.fillStyle='#c4a060';ctx.beginPath();ctx.arc(0,-27,12,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#4a3a1a';ctx.beginPath();ctx.arc(-4,-28,3.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(4,-28,3.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#c4a060';ctx.beginPath();ctx.arc(-4,-28,1.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(4,-28,1.5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#c4a060';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-13,-8);ctx.lineTo(-18,-8+as*0.2);ctx.stroke();ctx.beginPath();ctx.moveTo(13,-8);ctx.lineTo(18,-8-as*0.2);ctx.stroke();
+}
+function drawC_Heian(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,16,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#8a3050';ctx.beginPath();ctx.moveTo(-9,6);ctx.lineTo(-12+ls*0.2,22);ctx.lineTo(-2+ls*0.2,22);ctx.lineTo(-2,6);ctx.fill();ctx.beginPath();ctx.moveTo(2,6);ctx.lineTo(2-ls*0.2,22);ctx.lineTo(12-ls*0.2,22);ctx.lineTo(9,6);ctx.fill();
+  ctx.fillStyle='#6a2a8a';ctx.beginPath();ctx.moveTo(-14,-18);ctx.lineTo(14,-18);ctx.lineTo(12,8);ctx.lineTo(-12,8);ctx.fill();
+  ctx.fillStyle='#e0d0b0';ctx.beginPath();ctx.moveTo(-3,-18);ctx.lineTo(0,-9);ctx.lineTo(3,-18);ctx.fill();
+  ctx.fillStyle='#7a3a9a';ctx.beginPath();ctx.moveTo(-14,-14);ctx.lineTo(-24,-5+as*0.12);ctx.lineTo(-22,1+as*0.12);ctx.lineTo(-14,-5);ctx.fill();ctx.beginPath();ctx.moveTo(14,-14);ctx.lineTo(24,-5-as*0.12);ctx.lineTo(22,1-as*0.12);ctx.lineTo(14,-5);ctx.fill();
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(0,-30,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.moveTo(-5,-36);ctx.lineTo(0,-50);ctx.lineTo(7,-48);ctx.lineTo(7,-36);ctx.fill();
+  ctx.fillStyle='#333';ctx.beginPath();ctx.ellipse(-3,-31,1.5,1.2,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(3,-31,1.5,1.2,0,0,Math.PI*2);ctx.fill();
+}
+function drawC_Bushi(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.25)';ctx.beginPath();ctx.ellipse(0,22,16,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#3a3a3a';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,8);ctx.lineTo(-5+ls*0.4,20);ctx.stroke();ctx.beginPath();ctx.moveTo(5,8);ctx.lineTo(5-ls*0.4,20);ctx.stroke();
+  ctx.fillStyle='#8a2020';ctx.beginPath();ctx.roundRect(-13,-18,26,28,3);ctx.fill();ctx.strokeStyle='#6a1010';ctx.lineWidth=1;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-11,-14+i*6);ctx.lineTo(11,-14+i*6);ctx.stroke();}
+  ctx.fillStyle='#aa3030';ctx.fillRect(-18,-18,7,12);ctx.fillRect(11,-18,7,12);ctx.strokeStyle='#8a6a4a';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-13,-8);ctx.lineTo(-19,-3+as*0.18);ctx.stroke();ctx.beginPath();ctx.moveTo(13,-8);ctx.lineTo(19,-3-as*0.18);ctx.stroke();
+  ctx.strokeStyle='#ccc';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(7,-16);ctx.lineTo(10,-42);ctx.stroke();ctx.fillStyle='#8a6a2a';ctx.fillRect(6,-16,3,5);
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(0,-30,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#4a4a4a';ctx.beginPath();ctx.arc(0,-34,12,Math.PI,2*Math.PI);ctx.fill();
+  ctx.fillStyle='#daa520';ctx.beginPath();ctx.moveTo(-2,-45);ctx.lineTo(0,-52);ctx.lineTo(2,-45);ctx.fill();ctx.fillStyle='#333';ctx.fillRect(-6,-32,4,2);ctx.fillRect(2,-32,4,2);
+}
+function drawC_Chonin(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#8a6a3a';ctx.fillRect(-7+ls*0.3,18,7,4);ctx.fillRect(1-ls*0.3,18,7,4);
+  ctx.strokeStyle='#e0d0b0';ctx.lineWidth=3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-3,8);ctx.lineTo(-3+ls*0.3,18);ctx.stroke();ctx.beginPath();ctx.moveTo(3,8);ctx.lineTo(3-ls*0.3,18);ctx.stroke();
+  ctx.fillStyle='#2a5a8a';ctx.beginPath();ctx.moveTo(-12,-16);ctx.lineTo(12,-16);ctx.lineTo(10,10);ctx.lineTo(-10,10);ctx.fill();ctx.fillStyle='#daa520';ctx.fillRect(-11,-1,22,5);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-4,-16);ctx.lineTo(0,-5);ctx.lineTo(4,-16);ctx.stroke();
+  ctx.fillStyle='#2a5a8a';ctx.beginPath();ctx.moveTo(-12,-12);ctx.lineTo(-19,-3+as*0.15);ctx.lineTo(-16,1+as*0.15);ctx.lineTo(-12,-3);ctx.fill();ctx.beginPath();ctx.moveTo(12,-12);ctx.lineTo(19,-3-as*0.15);ctx.lineTo(16,1-as*0.15);ctx.lineTo(12,-3);ctx.fill();
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(0,-28,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#2a2a2a';ctx.beginPath();ctx.arc(0,-33,10,Math.PI,2*Math.PI);ctx.fill();ctx.fillRect(-2,-40,4,5);ctx.fillRect(-4,-42,8,3);
+  ctx.fillStyle='#333';ctx.beginPath();ctx.arc(-3,-29,1.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(3,-29,1.5,0,Math.PI*2);ctx.fill();
+}
+function drawC_Shishi(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#3a3a5a';ctx.beginPath();ctx.moveTo(-9,4);ctx.lineTo(-12+ls*0.3,22);ctx.lineTo(-2+ls*0.3,22);ctx.lineTo(-2,4);ctx.fill();ctx.beginPath();ctx.moveTo(2,4);ctx.lineTo(2-ls*0.3,22);ctx.lineTo(12-ls*0.3,22);ctx.lineTo(9,4);ctx.fill();
+  ctx.fillStyle='#2a2a4a';ctx.beginPath();ctx.moveTo(-11,-16);ctx.lineTo(11,-16);ctx.lineTo(10,6);ctx.lineTo(-10,6);ctx.fill();
+  ctx.fillStyle='#1a1a3a';ctx.beginPath();ctx.moveTo(-14,-16);ctx.lineTo(-13,7);ctx.lineTo(-7,7);ctx.lineTo(-7,-16);ctx.fill();ctx.beginPath();ctx.moveTo(7,-16);ctx.lineTo(7,7);ctx.lineTo(13,7);ctx.lineTo(14,-16);ctx.fill();
+  ctx.strokeStyle='#ffddaa';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-12,-8);ctx.lineTo(-17,-3+as*0.2);ctx.stroke();ctx.beginPath();ctx.moveTo(12,-8);ctx.lineTo(17,-3-as*0.2);ctx.stroke();
+  ctx.strokeStyle='#aaa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-14,0);ctx.lineTo(-26,-3);ctx.stroke();ctx.fillStyle='#6a4a1a';ctx.fillRect(-15,-2,4,4);
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(0,-28,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#2a2a2a';ctx.beginPath();ctx.arc(0,-32,10,Math.PI+0.3,-0.3);ctx.fill();
+  ctx.fillStyle='#333';ctx.fillRect(-6,-30,4,2);ctx.fillRect(2,-30,4,2);
+}
+function drawC_Kindai(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#2a2a2a';ctx.fillRect(-6+ls*0.3,17,6,5);ctx.fillRect(1-ls*0.3,17,6,5);
+  ctx.strokeStyle='#3a3a3a';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-3,6);ctx.lineTo(-3+ls*0.3,18);ctx.stroke();ctx.beginPath();ctx.moveTo(3,6);ctx.lineTo(3-ls*0.3,18);ctx.stroke();
+  ctx.fillStyle='#2a3a4a';ctx.beginPath();ctx.roundRect(-12,-18,24,26,3);ctx.fill();ctx.fillStyle='#e8e0d0';ctx.beginPath();ctx.moveTo(-3,-18);ctx.lineTo(0,-7);ctx.lineTo(3,-18);ctx.fill();ctx.fillStyle='#8a2020';ctx.beginPath();ctx.moveTo(-1,-16);ctx.lineTo(0,-5);ctx.lineTo(1,-16);ctx.fill();
+  ctx.strokeStyle='#2a3a4a';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-12,-10);ctx.lineTo(-17,-3+as*0.2);ctx.stroke();ctx.beginPath();ctx.moveTo(12,-10);ctx.lineTo(17,-3-as*0.2);ctx.stroke();
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(-17,-1+as*0.2,2.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(17,-1-as*0.2,2.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(0,-30,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#2a2a2a';ctx.beginPath();ctx.arc(0,-34,10,Math.PI,2*Math.PI);ctx.fill();ctx.fillRect(-12,-42,24,3);ctx.fillRect(-7,-50,14,9);
+  ctx.fillStyle='#333';ctx.beginPath();ctx.arc(-3,-31,1.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(3,-31,1.5,0,Math.PI*2);ctx.fill();
+}
+const PLAYER_DRAW=[drawC_Kodai,drawC_Heian,drawC_Bushi,drawC_Chonin,drawC_Shishi,drawC_Kindai];
+
+// ============================================================
+// 乗り物描画（キャラの下に描画、キャラを上に乗せる）
+// ============================================================
+function drawVehicle_Horse(bounce){
+  // 馬（飛鳥・奈良時代）
+  ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(0,22,24,5,0,0,Math.PI*2);ctx.fill();
+  const lb=Math.sin(bounce*3)*4;
+  // 脚
+  ctx.strokeStyle='#6a4a1a';ctx.lineWidth=4;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-12,8);ctx.lineTo(-14+lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-4,8);ctx.lineTo(-2-lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(10,8);ctx.lineTo(12+lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(18,8);ctx.lineTo(16-lb,20);ctx.stroke();
+  // 胴体
+  ctx.fillStyle='#8a5a2a';ctx.beginPath();ctx.ellipse(3,-2,22,12,0,0,Math.PI*2);ctx.fill();
+  // 頭
+  ctx.fillStyle='#7a4a1a';ctx.beginPath();ctx.ellipse(26,-12,8,6,-0.3,0,Math.PI*2);ctx.fill();
+  // 耳
+  ctx.fillStyle='#6a3a0a';ctx.beginPath();ctx.moveTo(28,-18);ctx.lineTo(30,-24);ctx.lineTo(32,-18);ctx.fill();
+  // 目
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(30,-12,1.5,0,Math.PI*2);ctx.fill();
+  // たてがみ
+  ctx.strokeStyle='#4a2a0a';ctx.lineWidth=2;
+  for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(16+i*3,-12);ctx.lineTo(14+i*3,-18-i);ctx.stroke();}
+  // 尻尾
+  ctx.strokeStyle='#4a2a0a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-20,0);ctx.quadraticCurveTo(-28,-4+Math.sin(bounce*4)*3,-30,4);ctx.stroke();
+}
+function drawVehicle_Oxcart(bounce){
+  // 牛車（平安時代）
+  const wb=Math.sin(bounce*2)*1.5;
+  ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(0,22,30,5,0,0,Math.PI*2);ctx.fill();
+  // 車輪
+  ctx.strokeStyle='#5a3a1a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(-12,18,8,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(12,18,8,0,Math.PI*2);ctx.stroke();
+  const wa=bounce*2;for(let i=0;i<4;i++){const a=wa+i*Math.PI/2;
+    ctx.beginPath();ctx.moveTo(-12,18);ctx.lineTo(-12+Math.cos(a)*7,18+Math.sin(a)*7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(12,18);ctx.lineTo(12+Math.cos(a)*7,18+Math.sin(a)*7);ctx.stroke();}
+  // 車体
+  ctx.fillStyle='#6a4a2a';ctx.beginPath();ctx.roundRect(-18,-10+wb,36,22,4);ctx.fill();
+  ctx.fillStyle='#8a6a3a';ctx.beginPath();ctx.roundRect(-16,-8+wb,32,18,3);ctx.fill();
+  // 屋根
+  ctx.fillStyle='#4a3a1a';ctx.beginPath();ctx.moveTo(-20,-10+wb);ctx.lineTo(0,-22+wb);ctx.lineTo(20,-10+wb);ctx.fill();
+  // 牛の引き綱
+  ctx.strokeStyle='#8a7a5a';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(18,2+wb);ctx.lineTo(38,-2);ctx.stroke();
+  // 牛
+  ctx.fillStyle='#555';ctx.beginPath();ctx.ellipse(44,4,10,7,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#555';ctx.beginPath();ctx.ellipse(52,-2,5,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#555';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(38,8);ctx.lineTo(37+Math.sin(bounce*3)*2,18);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(50,8);ctx.lineTo(51-Math.sin(bounce*3)*2,18);ctx.stroke();
+  // 牛の角
+  ctx.strokeStyle='#aa9a7a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(50,-6);ctx.lineTo(48,-12);ctx.stroke();ctx.beginPath();ctx.moveTo(54,-6);ctx.lineTo(56,-12);ctx.stroke();
+}
+function drawVehicle_MountedWarrior(bounce){
+  // 馬武者（鎌倉・室町）- 軍馬
+  ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(0,22,26,5,0,0,Math.PI*2);ctx.fill();
+  const lb=Math.sin(bounce*3)*5;
+  ctx.strokeStyle='#3a2a1a';ctx.lineWidth=4;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-14,8);ctx.lineTo(-16+lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-4,8);ctx.lineTo(-2-lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(10,8);ctx.lineTo(12+lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(20,8);ctx.lineTo(18-lb,20);ctx.stroke();
+  // 胴体（装甲馬）
+  ctx.fillStyle='#4a3a2a';ctx.beginPath();ctx.ellipse(3,-2,24,13,0,0,Math.PI*2);ctx.fill();
+  // 馬鎧
+  ctx.fillStyle='#aa3030';ctx.beginPath();ctx.roundRect(-8,-8,20,8,2);ctx.fill();
+  ctx.strokeStyle='#daa520';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-6,-4);ctx.lineTo(10,-4);ctx.stroke();
+  // 頭
+  ctx.fillStyle='#3a2a1a';ctx.beginPath();ctx.ellipse(28,-12,9,7,-0.3,0,Math.PI*2);ctx.fill();
+  // 面当
+  ctx.fillStyle='#8a2020';ctx.beginPath();ctx.arc(32,-12,4,Math.PI*0.5,Math.PI*1.5);ctx.fill();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(32,-12,1.5,0,Math.PI*2);ctx.fill();
+  // たてがみ
+  ctx.strokeStyle='#2a1a0a';ctx.lineWidth=2;for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(16+i*3,-12);ctx.lineTo(14+i*3,-20-i);ctx.stroke();}
+  ctx.strokeStyle='#2a1a0a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-22,0);ctx.quadraticCurveTo(-30,-6+Math.sin(bounce*4)*3,-32,4);ctx.stroke();
+}
+function drawVehicle_Palanquin(bounce){
+  // 駕籠（江戸時代）
+  const wb=Math.sin(bounce*2)*2;
+  ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(0,22,28,5,0,0,Math.PI*2);ctx.fill();
+  // 担ぎ棒
+  ctx.strokeStyle='#8a6a3a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(-40,0+wb);ctx.lineTo(40,0+wb);ctx.stroke();
+  // 駕籠本体
+  ctx.fillStyle='#5a4a3a';ctx.beginPath();ctx.roundRect(-14,-12+wb,28,20,6);ctx.fill();
+  ctx.fillStyle='#7a6a4a';ctx.beginPath();ctx.roundRect(-12,-10+wb,24,16,5);ctx.fill();
+  // 屋根
+  ctx.fillStyle='#3a3a2a';ctx.beginPath();ctx.moveTo(-16,-12+wb);ctx.lineTo(0,-20+wb);ctx.lineTo(16,-12+wb);ctx.fill();
+  // 担ぎ手（前）
+  const ls1=Math.sin(bounce*3)*3;
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(34,-8+wb,6,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#e0d0b0';ctx.fillRect(30,0+wb,8,12);
+  ctx.strokeStyle='#e0d0b0';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(32,12+wb);ctx.lineTo(30+ls1,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(36,12+wb);ctx.lineTo(38-ls1,20);ctx.stroke();
+  // 担ぎ手（後）
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(-34,-8+wb,6,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#e0d0b0';ctx.fillRect(-38,0+wb,8,12);
+  ctx.strokeStyle='#e0d0b0';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-36,12+wb);ctx.lineTo(-38-ls1,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-32,12+wb);ctx.lineTo(-30+ls1,20);ctx.stroke();
+}
+function drawVehicle_FastHorse(bounce){
+  // 馬+刀（幕末）- 速い馬
+  ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(0,22,24,5,0,0,Math.PI*2);ctx.fill();
+  const lb=Math.sin(bounce*4)*6;
+  ctx.strokeStyle='#2a2a2a';ctx.lineWidth=4;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-12,8);ctx.lineTo(-14+lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-4,8);ctx.lineTo(-2-lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(10,8);ctx.lineTo(12+lb,20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(18,8);ctx.lineTo(16-lb,20);ctx.stroke();
+  // 胴体（黒馬）
+  ctx.fillStyle='#2a2a2a';ctx.beginPath();ctx.ellipse(3,-2,22,12,0,0,Math.PI*2);ctx.fill();
+  // 頭
+  ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.ellipse(26,-12,8,6,-0.3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(30,-12,1.5,0,Math.PI*2);ctx.fill();
+  // たてがみ（流れる）
+  ctx.strokeStyle='#111';ctx.lineWidth=2;for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(16+i*2,-12);ctx.lineTo(10+i*2-Math.abs(lb)*0.3,-18-i*2);ctx.stroke();}
+  ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-20,0);ctx.quadraticCurveTo(-32,-8+Math.sin(bounce*5)*4,-34,2);ctx.stroke();
+  // 速度エフェクト線
+  ctx.strokeStyle='rgba(255,255,100,0.3)';ctx.lineWidth=1;
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(-24-i*8,-4+i*5);ctx.lineTo(-34-i*8,-4+i*5);ctx.stroke();}
+}
+function drawVehicle_Rickshaw(bounce){
+  // 人力車→自転車→自動車（明治〜昭和）- 人力車ベース
+  const wb=Math.sin(bounce*2)*1;
+  ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(0,22,26,5,0,0,Math.PI*2);ctx.fill();
+  // 車輪（大きめ2輪）
+  ctx.strokeStyle='#4a3a2a';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.arc(-8,16,10,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(8,16,10,0,Math.PI*2);ctx.stroke();
+  const wa=bounce*3;for(let i=0;i<6;i++){const a=wa+i*Math.PI/3;
+    ctx.beginPath();ctx.moveTo(-8,16);ctx.lineTo(-8+Math.cos(a)*9,16+Math.sin(a)*9);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(8,16);ctx.lineTo(8+Math.cos(a)*9,16+Math.sin(a)*9);ctx.stroke();}
+  // 車体
+  ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.roundRect(-14,-8+wb,28,16,4);ctx.fill();
+  ctx.fillStyle='#2a2a2a';ctx.beginPath();ctx.roundRect(-12,-6+wb,24,12,3);ctx.fill();
+  // 座席
+  ctx.fillStyle='#8a2020';ctx.beginPath();ctx.roundRect(-10,-4+wb,20,8,2);ctx.fill();
+  // フード
+  ctx.fillStyle='#333';ctx.beginPath();ctx.moveTo(-12,-8+wb);ctx.quadraticCurveTo(0,-20+wb,12,-8+wb);ctx.fill();
+  // 持ち手（棒）
+  ctx.strokeStyle='#5a4a3a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(14,4+wb);ctx.lineTo(30,8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(14,4+wb);ctx.lineTo(30,-2);ctx.stroke();
+  // 引き手
+  const ls1=Math.sin(bounce*3)*3;
+  ctx.fillStyle='#ffddaa';ctx.beginPath();ctx.arc(34,-4,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#3a3a4a';ctx.fillRect(30,2,8,12);
+  ctx.strokeStyle='#3a3a4a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(32,14);ctx.lineTo(30+ls1,22);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(36,14);ctx.lineTo(38-ls1,22);ctx.stroke();
+}
+const VEHICLE_DRAW=[drawVehicle_Horse,drawVehicle_Oxcart,drawVehicle_MountedWarrior,drawVehicle_Palanquin,drawVehicle_FastHorse,drawVehicle_Rickshaw];
+
+// ============================================================
+// 敵キャラ描画
+// ============================================================
+function drawE_Mammoth(ls){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,22,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#6a4a2a';ctx.fillRect(-16+ls*0.2,10,7,14);ctx.fillRect(-6-ls*0.2,10,7,14);ctx.fillRect(6+ls*0.2,10,7,14);ctx.fillRect(16-ls*0.2,10,7,14);
+  ctx.fillStyle='#8a6a3a';ctx.beginPath();ctx.ellipse(0,-5,26,18,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#7a5a2a';for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(-18+i*7,-18+Math.sin(i)*3,5,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#8a6a3a';ctx.beginPath();ctx.arc(22,-8,14,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#7a5a2a';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(34,-4);ctx.quadraticCurveTo(42,8,38,16);ctx.stroke();
+  ctx.strokeStyle='#fffff0';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(30,2);ctx.quadraticCurveTo(38,-2,36,-10);ctx.stroke();
+  ctx.fillStyle='#300';ctx.beginPath();ctx.arc(28,-10,2.5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c33';ctx.beginPath();ctx.arc(28,-10,1,0,Math.PI*2);ctx.fill();
+}
+function drawE_Oni(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,16,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#aa0000';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,8);ctx.lineTo(-5+ls*0.4,20);ctx.stroke();ctx.beginPath();ctx.moveTo(5,8);ctx.lineTo(5-ls*0.4,20);ctx.stroke();
+  ctx.fillStyle='#daa520';ctx.fillRect(-12,2,24,10);ctx.fillStyle='#333';ctx.fillRect(-8,4,4,6);ctx.fillRect(0,4,4,6);ctx.fillRect(8,4,4,6);
+  ctx.fillStyle='#cc2222';ctx.beginPath();ctx.ellipse(0,-8,16,20,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#cc2222';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(14,-10);ctx.lineTo(24,-16+as*0.15);ctx.stroke();
+  ctx.fillStyle='#555';ctx.beginPath();ctx.roundRect(22,-32+as*0.15,6,22,2);ctx.fill();for(let i=0;i<3;i++){ctx.fillStyle='#888';ctx.beginPath();ctx.arc(25,-28+i*7+as*0.15,2,0,Math.PI*2);ctx.fill();}
+  ctx.strokeStyle='#cc2222';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-14,-10);ctx.lineTo(-20,-4+as*0.2);ctx.stroke();
+  ctx.fillStyle='#cc2222';ctx.beginPath();ctx.arc(0,-32,13,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#daa520';ctx.beginPath();ctx.moveTo(-6,-43);ctx.lineTo(-4,-55);ctx.lineTo(-1,-43);ctx.fill();ctx.beginPath();ctx.moveTo(1,-43);ctx.lineTo(4,-55);ctx.lineTo(6,-43);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-5,-33,4,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(5,-33,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#300';ctx.beginPath();ctx.arc(-4,-33,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(6,-33,2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#800';ctx.beginPath();ctx.arc(0,-24,5,0,Math.PI);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(-3,-24);ctx.lineTo(-2,-21);ctx.lineTo(-1,-24);ctx.fill();ctx.beginPath();ctx.moveTo(1,-24);ctx.lineTo(2,-21);ctx.lineTo(3,-24);ctx.fill();
+}
+function drawE_Samurai(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.25)';ctx.beginPath();ctx.ellipse(0,22,16,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#2a2a3a';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,8);ctx.lineTo(-5+ls*0.4,20);ctx.stroke();ctx.beginPath();ctx.moveTo(5,8);ctx.lineTo(5-ls*0.4,20);ctx.stroke();
+  ctx.fillStyle='#2a2a5a';ctx.beginPath();ctx.roundRect(-14,-18,28,28,3);ctx.fill();ctx.strokeStyle='#1a1a3a';ctx.lineWidth=1;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-12,-14+i*6);ctx.lineTo(12,-14+i*6);ctx.stroke();}
+  ctx.fillStyle='#3a3a6a';ctx.fillRect(-19,-18,7,12);ctx.fillRect(12,-18,7,12);
+  ctx.strokeStyle='#ddd';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(16,-10);ctx.lineTo(36,-20+as*0.1);ctx.stroke();ctx.fillStyle='#6a4a2a';ctx.fillRect(14,-12,4,5);
+  ctx.strokeStyle='#2a2a3a';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-14,-8);ctx.lineTo(-20,-3+as*0.18);ctx.stroke();
+  ctx.fillStyle='#ddb899';ctx.beginPath();ctx.arc(0,-30,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#2a2a3a';ctx.beginPath();ctx.arc(0,-34,12,Math.PI,2*Math.PI);ctx.fill();
+  ctx.fillStyle='#aaa';ctx.beginPath();ctx.moveTo(-8,-44);ctx.lineTo(-12,-54);ctx.lineTo(-5,-44);ctx.fill();ctx.beginPath();ctx.moveTo(5,-44);ctx.lineTo(12,-54);ctx.lineTo(8,-44);ctx.fill();
+  ctx.fillStyle='#c33';ctx.fillRect(-6,-32,4,2);ctx.fillRect(2,-32,4,2);
+}
+function drawE_Toritte(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#3a3a3a';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-4,8);ctx.lineTo(-4+ls*0.35,20);ctx.stroke();ctx.beginPath();ctx.moveTo(4,8);ctx.lineTo(4-ls*0.35,20);ctx.stroke();
+  ctx.fillStyle='#3a3a4a';ctx.beginPath();ctx.moveTo(-12,-16);ctx.lineTo(12,-16);ctx.lineTo(10,10);ctx.lineTo(-10,10);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(-3,-16);ctx.lineTo(0,-6);ctx.lineTo(3,-16);ctx.fill();
+  ctx.strokeStyle='#777';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(12,-8);ctx.lineTo(28,-14+as*0.1);ctx.stroke();ctx.beginPath();ctx.moveTo(24,-14+as*0.1);ctx.lineTo(26,-20+as*0.1);ctx.stroke();
+  ctx.strokeStyle='#a08040';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-12,-6);ctx.quadraticCurveTo(-24,4+as*0.1,-20,12);ctx.stroke();
+  ctx.strokeStyle='#ddb899';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-12,-8);ctx.lineTo(-18,-3+as*0.18);ctx.stroke();
+  ctx.fillStyle='#ddb899';ctx.beginPath();ctx.arc(0,-28,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#333';ctx.beginPath();ctx.arc(0,-33,10,Math.PI+0.2,-0.2);ctx.fill();
+  ctx.fillStyle='#5a4a3a';ctx.beginPath();ctx.moveTo(-14,-36);ctx.lineTo(0,-42);ctx.lineTo(14,-36);ctx.fill();
+  ctx.fillStyle='#333';ctx.fillRect(-5,-30,4,2);ctx.fillRect(2,-30,4,2);ctx.strokeStyle='#800';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-3,-24);ctx.lineTo(3,-24);ctx.stroke();
+}
+function drawE_Soldier(ls,as){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.fillRect(-6+ls*0.3,17,6,5);ctx.fillRect(1-ls*0.3,17,6,5);
+  ctx.strokeStyle='#2a3a6a';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-4,6);ctx.lineTo(-4+ls*0.3,18);ctx.stroke();ctx.beginPath();ctx.moveTo(4,6);ctx.lineTo(4-ls*0.3,18);ctx.stroke();
+  ctx.fillStyle='#2a3a8a';ctx.beginPath();ctx.roundRect(-12,-18,24,26,3);ctx.fill();ctx.fillStyle='#aa8833';ctx.fillRect(-12,-2,24,4);
+  ctx.fillStyle='#daa520';for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(0,-14+i*5,1.2,0,Math.PI*2);ctx.fill();}
+  ctx.strokeStyle='#555';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(12,-10);ctx.lineTo(30,-18+as*0.08);ctx.stroke();ctx.fillStyle='#444';ctx.fillRect(28,-20+as*0.08,6,3);
+  ctx.strokeStyle='#ddb899';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-12,-8);ctx.lineTo(-18,-3+as*0.2);ctx.stroke();
+  ctx.fillStyle='#ddb899';ctx.beginPath();ctx.arc(0,-30,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#2a3a6a';ctx.beginPath();ctx.arc(0,-34,10,Math.PI,2*Math.PI);ctx.fill();ctx.fillRect(-12,-42,24,4);
+  ctx.fillStyle='#333';ctx.fillRect(-5,-30,4,2);ctx.fillRect(2,-30,4,2);
+}
+function drawE_Tank(ls){
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,22,30,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#3a3a2a';ctx.beginPath();ctx.roundRect(-30,6,60,16,6);ctx.fill();
+  const to=(groundOffset*2)%12;ctx.strokeStyle='#555';ctx.lineWidth=1;for(let i=0;i<6;i++){const tx=-28+i*11+to%11;ctx.beginPath();ctx.moveTo(tx,8);ctx.lineTo(tx,20);ctx.stroke();}
+  for(let i=0;i<4;i++){ctx.fillStyle='#4a4a3a';ctx.beginPath();ctx.arc(-20+i*14,14,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#333';ctx.beginPath();ctx.arc(-20+i*14,14,2,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#4a5a3a';ctx.beginPath();ctx.roundRect(-28,-8,56,18,3);ctx.fill();ctx.fillStyle='#3a4a2a';ctx.fillRect(-24,-6,48,2);
+  ctx.fillStyle='#5a6a4a';ctx.beginPath();ctx.roundRect(-14,-22,28,16,4);ctx.fill();
+  ctx.fillStyle='#4a5a3a';ctx.fillRect(14,-17,24,5);ctx.fillStyle='#3a4a2a';ctx.beginPath();ctx.arc(38,-15,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#6a7a5a';ctx.beginPath();ctx.arc(0,-22,5,Math.PI,2*Math.PI);ctx.fill();
+  ctx.fillStyle='#aa3333';ctx.beginPath();ctx.arc(-20,-1,4,0,Math.PI*2);ctx.fill();
+}
+const ENEMY_DRAW=[drawE_Mammoth,drawE_Oni,drawE_Samurai,drawE_Toritte,drawE_Soldier,drawE_Tank];
+
+// ============================================================
+// パーティクル / フローティングテキスト
+// ============================================================
+function spawnP(x,y,c,n){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-0.5)*8,vy:(Math.random()-1)*6,life:1,decay:0.02+Math.random()*0.03,size:3+Math.random()*4,color:c});}
+function updateP(){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life-=p.decay;if(p.life<=0)particles.splice(i,1);}}
+function drawP(){particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();});ctx.globalAlpha=1;}
+function showF(t,x,y,c,s){floatingTexts.push({text:t,x,y,color:c,life:1,vy:-2,size:s||22});}
+function updateF(){for(let i=floatingTexts.length-1;i>=0;i--){const f=floatingTexts[i];f.y+=f.vy;f.life-=0.025;if(f.life<=0)floatingTexts.splice(i,1);}}
+function drawF(){floatingTexts.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.color;ctx.font=`bold ${f.size}px sans-serif`;ctx.textAlign='center';ctx.fillText(f.text,f.x,f.y);});ctx.globalAlpha=1;}
+
+// ============================================================
+// HUD / 距離ゲージ / 問題パネル
+// ============================================================
+const eraColors=['#c45c3e','#9a5a9a','#5a7a5a','#4a7aaa','#8a4a4a','#5a7a9a'];
+function drawHUD(){
+  ctx.fillStyle='rgba(235,225,200,0.85)';ctx.fillRect(0,0,800,28);
+  ctx.strokeStyle='rgba(139,90,43,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,28);ctx.lineTo(800,28);ctx.stroke();
+  ctx.fillStyle='#8a6a3a';ctx.font='bold 11px "Yu Mincho", serif';ctx.textAlign='left';ctx.fillText('得点',12,12);
+  ctx.font='bold 20px "Yu Mincho", serif';ctx.fillStyle='#8b2020';ctx.fillText(score.toLocaleString(),12,27);
+  ctx.fillStyle=eraColors[currentEra];ctx.globalAlpha=0.75;ctx.beginPath();ctx.roundRect(290,4,220,20,10);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle='#fff';ctx.font='bold 12px "Yu Mincho", serif';ctx.textAlign='center';ctx.fillText(`${ERAS[currentEra].name}【${ERAS[currentEra].label}】 ${eraCorrectCount}/${CORRECT_PER_ERA}`,400,18);
+  ctx.textAlign='right';ctx.font='bold 11px "Yu Mincho", serif';ctx.fillStyle='#8a6a3a';ctx.fillText('残り',788,12);
+  ctx.font='bold 20px "Yu Mincho", serif';ctx.fillStyle=timeLeft<=10?'#cc2222':'#2a6a4a';ctx.fillText(Math.ceil(timeLeft).toString(),788,27);
+  if(combo>1){ctx.font='bold 13px "Yu Mincho", serif';ctx.fillStyle='#cc6600';ctx.textAlign='left';ctx.fillText(`${combo} 連続！`,100,27);}
+  ctx.textAlign='right';ctx.font='9px "Yu Mincho", serif';ctx.fillStyle='#8a7a5a';ctx.fillText('時代',556,18);
+  for(let i=0;i<6;i++){ctx.fillStyle=i<=currentEra?eraColors[i]:'rgba(139,90,43,0.1)';ctx.fillRect(560+i*10,10,8,8);}
+  // 乗り物アクティブ時のタイマーゲージ
+  if(vehicleActive){
+    const vr=vehicleTimer/VEHICLE_DURATION;
+    const vgx=200,vgw=400,vgy=140;
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.beginPath();ctx.roundRect(vgx-2,vgy-2,vgw+4,10,4);ctx.fill();
+    const gc=vr>0.5?'#33ffcc':vr>0.2?'#ffcc33':'#ff3333';
+    ctx.fillStyle=gc;ctx.beginPath();ctx.roundRect(vgx,vgy,vgw*vr,6,3);ctx.fill();
+    // 光るエフェクト
+    ctx.fillStyle=`rgba(255,255,255,${0.2+Math.sin(Date.now()*0.01)*0.1})`;ctx.beginPath();ctx.roundRect(vgx,vgy,vgw*vr,3,3);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+    ctx.fillText(`🐴 ${ERA_VEHICLES[vehicleEra].name} ${vehicleTimer.toFixed(1)}s`,400,vgy-3);
+  }
+  if(eraLabelTimer>0){const a=Math.min(1,eraLabelTimer);ctx.globalAlpha=a;ctx.fillStyle='#ffdd33';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.fillText(`⚡ ${ERAS[currentEra].name}時代 ⚡`,400,300);ctx.font='16px sans-serif';ctx.fillStyle='#fff';ctx.fillText(`${ERAS[currentEra].label} vs ${ERAS[currentEra].enemy}`,400,326);ctx.globalAlpha=1;}
+}
+function drawDistGauge(){
+  const gx=60,gw=680,gy=GAUGE_Y;
+  ctx.fillStyle='rgba(235,225,200,0.85)';ctx.beginPath();ctx.roundRect(gx-10,gy-5,gw+20,40,8);ctx.fill();
+  ctx.strokeStyle='rgba(139,90,43,0.2)';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(gx-10,gy-5,gw+20,40,8);ctx.stroke();
+  ctx.fillStyle='rgba(139,90,43,0.08)';ctx.beginPath();ctx.roundRect(gx,gy+8,gw,12,6);ctx.fill();
+  const r=displayDist/100;let bc;
+  if(displayDist<=20)bc='#ff3333';else if(displayDist<=40)bc='#ff8833';else if(displayDist<=60)bc='#ffcc33';else if(displayDist<=80)bc='#88cc33';else bc='#33ff88';
+  ctx.fillStyle=bc;ctx.beginPath();ctx.roundRect(gx,gy+8,gw*r,12,6);ctx.fill();
+  if(displayDist<=20){ctx.fillStyle=`rgba(255,50,50,${0.15+Math.sin(Date.now()*0.008)*0.1})`;ctx.beginPath();ctx.roundRect(gx,gy+8,gw*r,12,6);ctx.fill();}
+  // 乗り物中はシールドマーク
+  if(vehicleActive){
+    ctx.fillStyle=`rgba(51,255,204,${0.2+Math.sin(Date.now()*0.006)*0.1})`;ctx.beginPath();ctx.roundRect(gx,gy+8,gw*r,12,6);ctx.fill();
+  }
+  ctx.fillStyle='#6a5a3a';ctx.font='bold 10px "Yu Mincho", serif';ctx.textAlign='left';ctx.fillText(ERAS[currentEra].enemy,gx,gy+5);
+  ctx.textAlign='right';ctx.fillText(ERAS[currentEra].label,gx+gw,gy+5);
+  ctx.textAlign='center';ctx.fillStyle='#3a2a1a';ctx.font='bold 11px "Yu Mincho", serif';
+  const distLabel=vehicleActive?`距離: ${Math.round(displayDist)} 🛡️無敵`:`距離: ${Math.round(displayDist)}`;
+  ctx.fillText(distLabel,gx+gw/2,gy+5);
+}
+function drawQuestionPanel(){
+  if(!currentQuestion){
+    // 和紙風背景
+    ctx.fillStyle='rgba(235,225,200,0.85)';ctx.fillRect(0,28,800,SCENE_TOP-28);
+    // 墨文字ノイズ
+    ctx.fillStyle='rgba(139,90,43,0.04)';for(let i=0;i<10;i++){ctx.fillRect(Math.random()*800,28+Math.random()*(SCENE_TOP-28),Math.random()*60,1);}
+    ctx.fillStyle='#8a7a5a';ctx.font='16px "Yu Mincho", serif';ctx.textAlign='center';ctx.fillText('次の問題...',400,95);return;
+  }
+  const q=currentQuestion;
+  // 和紙風パネル
+  ctx.fillStyle='rgba(235,225,200,0.92)';ctx.fillRect(0,28,800,SCENE_TOP-28);
+  ctx.fillStyle='rgba(139,90,43,0.04)';for(let i=0;i<12;i++){ctx.fillRect(Math.random()*800,28+Math.random()*(SCENE_TOP-28),Math.random()*80,1);}
+  ctx.strokeStyle='rgba(139,90,43,0.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,SCENE_TOP);ctx.lineTo(800,SCENE_TOP);ctx.stroke();
+  ctx.fillStyle='#2a1a0a';ctx.font='bold 18px "Yu Mincho", serif';ctx.textAlign='center';ctx.fillText(`「${q.event}」は何年？`,400,48);
+  for(let i=0;i<4;i++){
+    const b=btnRect(i);const ih=mouseX>=b.x&&mouseX<=b.x+b.w&&mouseY>=b.y&&mouseY<=b.y+b.h;
+    if(ih){ctx.fillStyle='rgba(139,90,43,0.2)';ctx.shadowColor='rgba(139,90,43,0.3)';ctx.shadowBlur=8;}else{ctx.fillStyle='rgba(245,238,220,0.7)';}
+    ctx.beginPath();ctx.roundRect(b.x,b.y,b.w,b.h,8);ctx.fill();ctx.shadowBlur=0;
+    ctx.strokeStyle=ih?'rgba(139,90,43,0.6)':'rgba(139,90,43,0.2)';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(b.x,b.y,b.w,b.h,8);ctx.stroke();
+    ctx.fillStyle=ih?'#8b2020':'#8a6a3a';ctx.font='bold 13px "Yu Mincho", serif';ctx.textAlign='left';ctx.fillText(`${i+1}`,b.x+12,b.y+b.h/2+5);
+    ctx.fillStyle=ih?'#2a1a0a':'#3a2a1a';ctx.font='bold 20px "Yu Mincho", serif';ctx.textAlign='center';ctx.fillText(`${q.choices[i]}年`,b.x+b.w/2+10,b.y+b.h/2+7);
+  }
+}
+
+// ============================================================
+// 語呂合わせ表示パネル
+// ============================================================
+function drawGorouPanel(){
+  if(!gorouDisplay.active)return;
+  const g=gorouDisplay, a=Math.min(1,g.timer*2);
+  ctx.save();
+  ctx.globalAlpha=a;
+  // 和紙風背景オーバーレイ
+  ctx.fillStyle='rgba(30,25,15,0.5)';
+  ctx.fillRect(0,SCENE_TOP,800,GROUND_Y-SCENE_TOP+50);
+  // パネル
+  const px=80,py=SCENE_TOP+15,pw=640,ph=200;
+  // 外枠（墨色）
+  ctx.fillStyle='rgba(100,40,30,0.85)';
+  ctx.beginPath();ctx.roundRect(px-3,py-3,pw+6,ph+6,14);ctx.fill();
+  // 和紙パネル本体
+  ctx.fillStyle='rgba(240,230,210,0.96)';
+  ctx.beginPath();ctx.roundRect(px,py,pw,ph,12);ctx.fill();
+  // 和紙テクスチャ
+  ctx.fillStyle='rgba(139,90,43,0.03)';for(let i=0;i<8;i++){ctx.fillRect(px+Math.random()*pw,py+Math.random()*ph,Math.random()*100,1);}
+  // 「残念！」
+  ctx.fillStyle='#8b2020';ctx.font='bold 22px "Yu Mincho", serif';ctx.textAlign='center';
+  ctx.fillText('残念！',400,py+30);
+  // 正解
+  ctx.fillStyle='#2a1a0a';ctx.font='bold 24px "Yu Mincho", serif';
+  ctx.fillText(`正解は ${g.year}年「${g.event}」`,400,py+62);
+  // 語呂合わせ
+  if(g.gorou){
+    const gy=py+78,ghh=42;
+    ctx.fillStyle='rgba(139,90,43,0.1)';
+    ctx.beginPath();ctx.roundRect(px+20,gy,pw-40,ghh,8);ctx.fill();
+    ctx.strokeStyle='rgba(139,90,43,0.3)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(px+20,gy,pw-40,ghh,8);ctx.stroke();
+    ctx.fillStyle='#8b5a2a';ctx.font='bold 13px "Yu Mincho", serif';ctx.textAlign='center';
+    ctx.fillText('💡 覚え方',400,gy+16);
+    ctx.fillStyle='#2a1a0a';ctx.font='bold 22px "Yu Mincho", serif';
+    ctx.fillText(g.gorou,400,gy+38);
+  }
+  // 「📜 詳しく見る」ボタン
+  if(g.showScrollBtn){
+    const bx=300,by=py+ph-42,bw=200,bh=32;
+    const bHover=mouseX>=bx&&mouseX<=bx+bw&&mouseY>=by&&mouseY<=by+bh;
+    ctx.fillStyle=bHover?'rgba(139,90,43,0.3)':'rgba(139,90,43,0.15)';
+    ctx.beginPath();ctx.roundRect(bx,by,bw,bh,16);ctx.fill();
+    ctx.strokeStyle='rgba(139,90,43,0.5)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(bx,by,bw,bh,16);ctx.stroke();
+    ctx.fillStyle='#5a3a1a';ctx.font='bold 14px "Yu Mincho", serif';ctx.textAlign='center';
+    ctx.fillText('📜 詳しく見る',400,by+22);
+    gorouDisplay._btnRect={x:bx,y:by,w:bw,h:bh};
+  }
+  // 残り時間インジケーター
+  const tr=g.timer/6.0;
+  ctx.fillStyle='rgba(139,90,43,0.1)';ctx.fillRect(px+20,py+ph-8,pw-40,4);
+  ctx.fillStyle='rgba(139,90,43,0.4)';ctx.fillRect(px+20,py+ph-8,(pw-40)*tr,4);
+  ctx.restore();
+}
+
+// ============================================================
+// 巻物表示（HTML DOM）
+// ============================================================
+function findScrollData(year){return SCROLL_DATA.find(s=>s.year===year);}
+function showScrollOverlay(filterYears){
+  const list=document.getElementById('scrollList');
+  list.innerHTML='';
+  const items=filterYears?SCROLL_DATA.filter(s=>filterYears.includes(s.year)):SCROLL_DATA;
+  items.forEach((s,i)=>{
+    const card=document.createElement('div');card.className='scroll-card';
+    card.style.opacity='0';card.style.transform='translateX(-20px)';
+    setTimeout(()=>{card.style.transition='opacity 0.4s, transform 0.4s';card.style.opacity='1';card.style.transform='translateX(0)';},i*80);
+    card.innerHTML=`<span class="scroll-card-year">${s.year}年</span><span class="scroll-card-event">「${s.event}」</span><div class="scroll-card-desc">${s.desc}</div><div class="scroll-card-gorou">💡 ${s.gorou}</div>`;
+    list.appendChild(card);
+  });
+  document.getElementById('scrollOverlay').classList.add('show');
+}
+function hideScrollOverlay(){
+  document.getElementById('scrollOverlay').classList.remove('show');
+  document.getElementById('scrollOverlay').scrollTop=0;
+}
+// 個別巻物表示（ゲーム中の不正解時）
+function showSingleScroll(year){
+  const s=findScrollData(year);if(!s)return;
+  const list=document.getElementById('scrollList');
+  list.innerHTML='';
+  const card=document.createElement('div');card.className='scroll-card';
+  card.style.opacity='0';card.style.transform='scale(0.8)';
+  setTimeout(()=>{card.style.transition='opacity 0.5s, transform 0.5s';card.style.opacity='1';card.style.transform='scale(1)';},100);
+  card.innerHTML=`<span class="scroll-card-year">${s.year}年</span><span class="scroll-card-event">「${s.event}」</span><div class="scroll-card-desc">${s.desc}</div><div class="scroll-card-gorou">💡 ${s.gorou}</div>`;
+  list.appendChild(card);
+  scrollViewYear=year;
+  document.getElementById('scrollOverlay').classList.add('show');
+}
+document.getElementById('scrollCloseBtn').addEventListener('click',()=>{
+  hideScrollOverlay();
+  if(scrollViewYear&&gameState==='playing'){scrollViewYear=null;gorouDisplay.active=false;}
+  scrollViewYear=null;
+});
+document.getElementById('zukanBtn').addEventListener('click',()=>showScrollOverlay(null));
+document.getElementById('resultZukanBtn').addEventListener('click',()=>{
+  const yrs=[...new Set(sessionAnswered)];
+  showScrollOverlay(yrs.length>0?yrs:null);
+});
+
+// ============================================================
+// アイテム（乗り物）スポーン / 描画
+// ============================================================
+function spawnItem(){
+  itemFloating=true;
+  itemX=820; // 画面右端外から
+  itemY=GROUND_Y-60+Math.random()*30;
+  itemGlow=0;
+}
+function updateItem(dt){
+  if(!itemFloating)return;
+  itemX-=speed*dt*50+2; // 前方から流れてくる
+  itemGlow+=dt*5;
+  // プレイヤーとの当たり判定
+  const px=PLAYER_X+playerDashOff;
+  const dist=Math.sqrt((itemX-px)**2+(itemY-(GROUND_Y-3))**2);
+  if(dist<35){
+    // 取得！
+    itemFloating=false;
+    activateVehicle();
+  }
+  // 画面外に出たら消える
+  if(itemX<-50)itemFloating=false;
+}
+function drawItem(){
+  if(!itemFloating)return;
+  const gv=Math.sin(itemGlow)*0.4+0.6;
+  // グロー
+  ctx.save();
+  ctx.globalAlpha=0.3*gv;
+  ctx.fillStyle='#ffdd33';
+  ctx.beginPath();ctx.arc(itemX,itemY,20+Math.sin(itemGlow*2)*5,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=0.15*gv;
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(itemX,itemY,28+Math.sin(itemGlow*2)*8,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;
+  // アイテム本体（キラキラ星型）
+  ctx.fillStyle='#ffdd33';
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    const a=(-Math.PI/2)+i*Math.PI*2/5;
+    const a2=a+Math.PI/5;
+    ctx.lineTo(itemX+Math.cos(a)*12,itemY+Math.sin(a)*12);
+    ctx.lineTo(itemX+Math.cos(a2)*5,itemY+Math.sin(a2)*5);
+  }
+  ctx.closePath();ctx.fill();
+  // 乗り物アイコン（テキスト）
+  ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+  ctx.fillText(ERA_VEHICLES[currentEra].name,itemX,itemY+4);
+  // キラキラパーティクル
+  if(Math.random()<0.15)spawnP(itemX+(Math.random()-0.5)*20,itemY+(Math.random()-0.5)*20,'rgba(255,221,51,0.6)',1);
+  ctx.restore();
+}
+
+function activateVehicle(){
+  vehicleActive=true;
+  vehicleTimer=VEHICLE_DURATION;
+  vehicleEra=currentEra;
+  targetSpeed=BOOST_SPEED*VEHICLE_SPEED_MULT;
+  spawnP(PLAYER_X,GROUND_Y-30,'#33ffcc',25);
+  spawnP(PLAYER_X,GROUND_Y-30,'#ffdd33',15);
+  showF(`🐴 ${ERA_VEHICLES[currentEra].name}ゲット！`,400,GROUND_Y-80,'#33ffcc',24);
+  showF('速度UP & 無敵！',400,GROUND_Y-55,'#ffdd33',16);
+  score+=50;
+  flashColor='#33ffcc';flashAlpha=0.25;
+}
+function deactivateVehicle(){
+  vehicleActive=false;
+  vehicleTimer=0;
+  targetSpeed=BASE_SPEED;
+  vehicleEndEffect=1.5; // 演出タイマー
+  spawnP(PLAYER_X,GROUND_Y-20,'rgba(100,100,100,0.5)',12);
+  showF('速度ダウン！',PLAYER_X,GROUND_Y-60,'#ff8833',22);
+  flashColor='#888';flashAlpha=0.15;
+}
+
+// ============================================================
+// シーン描画
+// ============================================================
+function drawScene(){
+  BG_DRAW[currentEra]();
+  const ls=Math.sin(bouncePhase*2)*14,as=Math.sin(bouncePhase*2)*18;
+  const eLs=Math.sin(enemyPhase*2)*14,eAs=Math.sin(enemyPhase*2)*18;
+  const pb=Math.abs(Math.sin(bouncePhase))*8,eb=Math.abs(Math.sin(enemyPhase))*8;
+  const px=PLAYER_X+playerDashOff,ex=px-(displayDist/100)*ENEMY_GAP-enemyDashOff;
+  ctx.save();ctx.translate(ex,GROUND_Y-3-eb);ENEMY_DRAW[currentEra](eLs,eAs);ctx.restore();
+
+  // アイテム描画
+  drawItem();
+
+  // プレイヤー描画（乗り物あり/なし）
+  if(vehicleActive){
+    // 乗り物＋キャラ
+    const vBounce=bouncePhase;
+    const vehicleBob=Math.abs(Math.sin(vBounce))*4;
+    ctx.save();ctx.translate(px,GROUND_Y-3-vehicleBob);
+    // 乗り物を先に描画
+    VEHICLE_DRAW[vehicleEra](vBounce);
+    // キャラを乗り物の上に縮小して描画
+    ctx.save();
+    ctx.translate(0,-22);ctx.scale(0.7,0.7);
+    PLAYER_DRAW[currentEra](ls*0.5,as*0.5);
+    ctx.restore();
+    // 乗り物オーラ
+    ctx.globalAlpha=0.12+Math.sin(Date.now()*0.008)*0.06;
+    ctx.strokeStyle='#33ffcc';ctx.lineWidth=3;
+    ctx.beginPath();ctx.ellipse(0,-10,35,25,0,0,Math.PI*2);ctx.stroke();
+    ctx.globalAlpha=1;
+    // スピード線
+    ctx.globalAlpha=0.45;
+    for(let i=1;i<=5;i++){
+      ctx.strokeStyle=i%2===0?'#33ffcc':'#ffdd33';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(-25-i*12,-15+i*6);ctx.lineTo(-38-i*12,-15+i*6);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    ctx.restore();
+  } else {
+    ctx.save();ctx.translate(px,GROUND_Y-3-pb);PLAYER_DRAW[currentEra](ls,as);
+    if(speed>BASE_SPEED+1){ctx.globalAlpha=0.35;for(let i=1;i<=3;i++){ctx.strokeStyle='#ffdd33';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-20-i*9,-12+i*4);ctx.lineTo(-28-i*9,-12+i*4);ctx.stroke();}ctx.globalAlpha=1;}
+    ctx.restore();
+  }
+
+  // 速度ダウン演出
+  if(vehicleEndEffect>0){
+    const ea=Math.min(1,vehicleEndEffect);
+    ctx.globalAlpha=ea*0.3;
+    ctx.fillStyle='#888';
+    // 減速モヤ
+    for(let i=0;i<4;i++){
+      ctx.beginPath();ctx.arc(px-20-i*15,GROUND_Y-10+Math.sin(Date.now()*0.003+i)*5,8+i*3,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  if(Math.random()<speed*0.03)spawnP(px-10,GROUND_Y+12,'rgba(160,130,100,0.3)',1);
+  if(Math.random()<0.02)spawnP(ex+10,GROUND_Y+12,'rgba(180,60,60,0.3)',1);
+  if(displayDist<=20&&!vehicleActive){ctx.fillStyle=`rgba(255,0,0,${0.06+Math.sin(Date.now()*0.008)*0.04})`;ctx.fillRect(0,SCENE_TOP,800,500-SCENE_TOP);}
+}
+
+// ============================================================
+// 問題出題 / 回答
+// ============================================================
+function showNextQ(){
+  const pool=ERA_QUESTIONS[currentEra];if(eraUsedQs.length>=pool.length)eraUsedQs=[];
+  const avail=pool.filter((_,i)=>!eraUsedQs.includes(i));const qi=pool.indexOf(avail[Math.floor(Math.random()*avail.length)]);eraUsedQs.push(qi);
+  const q=pool[qi];currentQuestion={year:q.year,event:q.event,choices:[...q.choices].sort(()=>Math.random()-0.5),gorou:q.gorou||'',desc:q.desc||''};
+  sessionAnswered.push(q.year);
+}
+function answerQ(ci){
+  if(!currentQuestion)return;const sel=currentQuestion.choices[ci],ok=sel===currentQuestion.year;totalAnswered++;
+  if(ok){
+    correctCount++;combo++;if(combo>maxCombo)maxCombo=combo;const bonus=100*combo;score+=bonus;
+    if(!vehicleActive)targetSpeed=BOOST_SPEED;
+    flashColor='#33ff99';flashAlpha=0.2;playerDashOff=30;
+    // 乗り物中は距離が減らない（無敵）だが、増加はする
+    chaseDist=Math.min(100,chaseDist+20);
+    spawnP(PLAYER_X,GROUND_Y-30,'#ffdd33',15);spawnP(PLAYER_X,GROUND_Y-30,'#33ff99',8);
+    showF(`+${bonus}`,PLAYER_X+40,GROUND_Y-50,'#ffdd33');
+    if(combo>1)showF(`${combo} COMBO!`,400,SCENE_TOP+30,'#ff9933',18);
+    if(chaseDist>=100&&!wasAtMax){wasAtMax=true;score+=300;showF('完全逃げ切り！+300',400,GROUND_Y-70,'#33ffcc',26);spawnP(400,GROUND_Y-40,'#33ffcc',20);}
+    eraCorrectCount++;
+    // 乗り物アイテムスポーン（30%確率、乗り物非アクティブ時のみ）
+    if(!vehicleActive&&!itemFloating&&Math.random()<VEHICLE_SPAWN_CHANCE){
+      spawnItem();
+    }
+    if(eraCorrectCount>=CORRECT_PER_ERA){
+      if(currentEra>=5){currentQuestion=null;setTimeout(()=>endGame('clear'),800);return;}
+      currentEra++;eraCorrectCount=0;eraUsedQs=[];eraTransAlpha=1.0;eraLabelTimer=2.5;nextQInterval=Q_INTERVAL_ERA;
+      // 時代進化時に乗り物リセット
+      if(vehicleActive){deactivateVehicle();}
+      itemFloating=false;
+      spawnP(400,300,'#ffdd33',30);spawnP(400,300,'#ff9933',20);spawnP(400,300,'#fff',15);showF('⚡ 進化！',400,GROUND_Y-80,'#ffdd33',28);
+    }
+  } else {
+    combo=0;
+    if(!vehicleActive){
+      targetSpeed=SLOW_SPEED;
+      chaseDist=Math.max(0,chaseDist-20);
+      enemyDashOff=30;
+      if(chaseDist<=0){currentQuestion=null;setTimeout(()=>endGame('caught'),600);return;}
+    } else {
+      showF('🛡️ 無敵！',PLAYER_X,GROUND_Y-70,'#33ffcc',18);
+    }
+    flashColor='#ff3333';flashAlpha=0.2;shakeAmount=vehicleActive?2:8;
+    spawnP(PLAYER_X-30,GROUND_Y,'#ff3333',12);showF(`${currentQuestion.year}年`,PLAYER_X,GROUND_Y-50,'#ff5555');
+    // 語呂合わせ表示（巻物ボタン付き）
+    const hasScroll=!!findScrollData(currentQuestion.year);
+    gorouDisplay={active:true, year:currentQuestion.year, event:currentQuestion.event, gorou:currentQuestion.gorou||'', desc:currentQuestion.desc||'', timer:6.0, showScrollBtn:hasScroll, _btnRect:null};
+  }
+  if(chaseDist<100)wasAtMax=false;currentQuestion=null;questionTimer=0;
+  if(!vehicleActive)setTimeout(()=>{targetSpeed=BASE_SPEED;},1200);
+}
+
+// ============================================================
+// 入力
+// ============================================================
+canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();mouseX=(e.clientX-r.left)*(canvas.width/r.width);mouseY=(e.clientY-r.top)*(canvas.height/r.height);});
+canvas.addEventListener('click',e=>{
+  const r=canvas.getBoundingClientRect();const cx=(e.clientX-r.left)*(canvas.width/r.width),cy=(e.clientY-r.top)*(canvas.height/r.height);
+  // 語呂合わせパネルの「📜 詳しく見る」ボタン
+  if(gorouDisplay.active&&gorouDisplay.showScrollBtn&&gorouDisplay._btnRect){
+    const b=gorouDisplay._btnRect;
+    if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){showSingleScroll(gorouDisplay.year);return;}
+  }
+  if(gameState!=='playing'||!currentQuestion)return;
+  for(let i=0;i<4;i++){const b=btnRect(i);if(cx>=b.x&&cx<=b.x+b.w&&cy>=b.y&&cy<=b.y+b.h){answerQ(i);return;}}
+});
+document.addEventListener('keydown',e=>{if(gameState!=='playing'||!currentQuestion)return;const n=parseInt(e.key);if(n>=1&&n<=4)answerQ(n-1);});
+
+// ============================================================
+// ゲーム開始・終了
+// ============================================================
+function resetGame(){
+  score=0;combo=0;maxCombo=0;correctCount=0;totalAnswered=0;timeLeft=GAME_DURATION;speed=BASE_SPEED;targetSpeed=BASE_SPEED;runDist=0;
+  currentQuestion=null;questionTimer=0;eraUsedQs=[];particles=[];floatingTexts=[];shakeAmount=0;flashColor=null;flashAlpha=0;
+  currentEra=0;eraCorrectCount=0;eraTransAlpha=0;eraLabelTimer=0;chaseDist=50;displayDist=50;playerDashOff=0;enemyDashOff=0;wasAtMax=false;
+  bouncePhase=0;enemyPhase=0;bgOffset=0;groundOffset=0;nextQInterval=Q_INTERVAL;endReason='';
+  // 乗り物リセット
+  vehicleActive=false;vehicleTimer=0;vehicleEra=0;itemFloating=false;itemX=0;itemY=0;itemGlow=0;vehicleEndEffect=0;
+  gorouDisplay={active:false,year:0,event:'',gorou:'',desc:'',timer:0,showScrollBtn:false,_btnRect:null};
+  sessionAnswered=[];scrollViewYear=null;
+}
+function startGame(){
+  resetGame();gameState='playing';startTime=Date.now();
+  document.getElementById('titleScreen').classList.add('hidden');document.getElementById('resultScreen').classList.remove('show');showNextQ();
+}
+function endGame(reason){
+  if(gameState!=='playing')return;gameState='result';endReason=reason||'timeout';playTime=(Date.now()-startTime)/1000;
+  const acc=totalAnswered>0?Math.round((correctCount/totalAnswered)*100):0;
+  console.log('=== 年号フラッシュラン リザルト ===');
+  console.log(`結果: ${endReason==='clear'?'クリア！':endReason==='caught'?'追いつかれた':'タイムアップ'}`);
+  console.log(`スコア: ${score}`);console.log(`正解数: ${correctCount} / ${totalAnswered}`);console.log(`正答率: ${acc}%`);console.log(`最大コンボ: ${maxCombo}`);
+  console.log(`到達時代: ${ERAS[currentEra].name}（${ERAS[currentEra].label}）`);console.log(`最終距離: ${Math.round(chaseDist)}`);console.log(`プレイ時間: ${playTime.toFixed(1)}秒`);
+  console.log('================================');
+  if(endReason==='clear')score+=1000;
+  let title,rank;
+  if(endReason==='clear'){title='🎌 全時代クリア！！';rank='🏆 歴史の覇者！全時代を駆け抜けた！';}
+  else if(endReason==='caught'){title=`💀 ${ERAS[currentEra].enemy}に追いつかれた！`;rank=currentEra>=4?'🥈 あと少しだった！惜しい！':currentEra>=2?'🥉 中盤まで頑張った！':'📚 もっと年号を覚えよう！';}
+  else{title='⏰ タイムアップ！';rank=score>=3000?'🥇 時間切れだが素晴らしい！':score>=1000?'🥈 なかなかの歴史通！':'📚 もっと素早く答えよう！';}
+  document.getElementById('resultTitle').textContent=title;document.getElementById('finalScore').textContent=score.toLocaleString();
+  document.getElementById('finalCorrect').textContent=`${correctCount}/${totalAnswered}`;document.getElementById('finalAccuracy').textContent=`${acc}%`;
+  document.getElementById('finalTime').textContent=`${playTime.toFixed(1)}s`;document.getElementById('finalDist').textContent=Math.round(chaseDist).toString();
+  document.getElementById('finalEra').textContent=`到達時代：${ERAS[currentEra].name}【${ERAS[currentEra].label}】`;
+  document.getElementById('resultRank').textContent=rank;document.getElementById('resultScreen').classList.add('show');
+}
+document.getElementById('startBtn').addEventListener('click',startGame);
+document.getElementById('restartBtn').addEventListener('click',startGame);
+
+// ============================================================
+// メインループ
+// ============================================================
+let lastTime=0;
+function gameLoop(ts){
+  const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+  if(gameState==='playing'){
+    timeLeft-=dt;if(timeLeft<=0){timeLeft=0;endGame('timeout');}
+    // 乗り物アクティブ時はスピード倍率を維持
+    if(vehicleActive){
+      speed+=(BOOST_SPEED*VEHICLE_SPEED_MULT-speed)*0.08;
+    } else {
+      speed+=(targetSpeed-speed)*0.06;
+    }
+    runDist+=speed*dt*10;bgOffset+=speed*dt*30;groundOffset+=speed*dt*30;
+    bouncePhase+=speed*0.15;enemyPhase+=2.2*0.15;
+    displayDist+=(chaseDist-displayDist)*0.08;playerDashOff*=0.88;enemyDashOff*=0.88;
+    if(playerDashOff<0.5)playerDashOff=0;if(enemyDashOff<0.5)enemyDashOff=0;
+    // 語呂合わせ表示中は問題タイマーを停止
+    if(gorouDisplay.active){gorouDisplay.timer-=dt;if(gorouDisplay.timer<=0){gorouDisplay.active=false;}}
+    if(!currentQuestion&&!gorouDisplay.active&&gameState==='playing'){questionTimer+=dt*1000;if(questionTimer>=nextQInterval){questionTimer=0;nextQInterval=Q_INTERVAL;showNextQ();}}
+    if(shakeAmount>0)shakeAmount*=0.9;if(shakeAmount<0.1)shakeAmount=0;
+    if(flashAlpha>0)flashAlpha*=0.93;if(eraTransAlpha>0)eraTransAlpha*=0.92;if(eraLabelTimer>0)eraLabelTimer-=dt;
+    // 乗り物タイマー更新
+    if(vehicleActive){
+      vehicleTimer-=dt;
+      if(vehicleTimer<=0){deactivateVehicle();}
+    }
+    // 速度ダウン演出タイマー
+    if(vehicleEndEffect>0)vehicleEndEffect-=dt;
+    // アイテム更新
+    updateItem(dt);
+    updateP();updateF();updateSakura(dt);
+  }
+  ctx.save();if(shakeAmount>0)ctx.translate((Math.random()-0.5)*shakeAmount,(Math.random()-0.5)*shakeAmount);
+  ctx.fillStyle='#111';ctx.fillRect(0,0,800,500);
+  if(gameState==='playing'){
+    drawScene();drawSakura();drawP();drawF();drawQuestionPanel();drawGorouPanel();drawHUD();drawDistGauge();
+    if(flashAlpha>0.01){ctx.fillStyle=flashColor;ctx.globalAlpha=flashAlpha;ctx.fillRect(0,0,800,500);ctx.globalAlpha=1;}
+    if(eraTransAlpha>0.01){ctx.fillStyle='#ffdd33';ctx.globalAlpha=eraTransAlpha*0.5;ctx.fillRect(0,0,800,500);ctx.globalAlpha=1;}
+  }
+  ctx.restore();requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
