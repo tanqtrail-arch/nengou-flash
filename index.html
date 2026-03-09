@@ -1111,6 +1111,7 @@ function endGame(reason){
   document.getElementById('finalTime').textContent=`${playTime.toFixed(1)}s`;document.getElementById('finalDist').textContent=Math.round(chaseDist).toString();
   document.getElementById('finalEra').textContent=`到達時代：${ERAS[currentEra].name}【${ERAS[currentEra].label}】`;
   document.getElementById('resultRank').textContent=rank;document.getElementById('resultScreen').classList.add('show');
+  DarwinBridge.stageClear({score: score, correct: correctCount, total: totalAnswered});
 }
 document.getElementById('startBtn').addEventListener('click',startGame);
 document.getElementById('restartBtn').addEventListener('click',startGame);
@@ -1160,5 +1161,7 @@ function gameLoop(ts){
 }
 requestAnimationFrame(gameLoop);
 </script>
+<script src="trail-nav.js"></script>
+<script>DarwinBridge.ready();</script>
 </body>
 </html>
